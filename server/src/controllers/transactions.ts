@@ -31,7 +31,8 @@ export async function getTransactions(req: Request, res: Response) {
       params.push(to);
     }
     if (search) {
-      query += ` AND (t.description ILIKE $${paramIdx++} OR c.name ILIKE $${paramIdx++})`;
+      query += ` AND (t.description ILIKE $${paramIdx} OR c.name ILIKE $${paramIdx + 1})`;
+      paramIdx += 2;
       params.push(`%${search}%`, `%${search}%`);
     }
 
@@ -50,7 +51,8 @@ export async function getTransactions(req: Request, res: Response) {
     if (from) { countQuery += ` AND t.date >= $${countIdx++}`; countParams.push(from); }
     if (to) { countQuery += ` AND t.date <= $${countIdx++}`; countParams.push(to); }
     if (search) {
-      countQuery += ` AND (t.description ILIKE $${countIdx++} OR c.name ILIKE $${countIdx++})`;
+      countQuery += ` AND (t.description ILIKE $${countIdx} OR c.name ILIKE $${countIdx + 1})`;
+      countIdx += 2;
       countParams.push(`%${search}%`, `%${search}%`);
     }
 
