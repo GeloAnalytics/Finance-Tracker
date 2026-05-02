@@ -38,16 +38,37 @@ app.use('/api/categories', (req, res) => {
 });
 app.use('/api/advisor', advisorRoutes);
 
-// Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), name: 'FinanceWise API' });
+// Health check — includes DB connectivity diagnostic
+let dbStatus: { ok: boolean; error?: string; tables?: boolean; categories?: number } = { ok: false, error: 'Not initialized yet' };
+
+app.get('/api/health', async (_req, res) => {
+  // Quick DB probe
+  let dbProbe = { connected: false, error: '' };
+  try {
+    const pool = (await import('./db/connection')).default;
+    const r = await pool.query('SELECT COUNT(*) as n FROM categories');
+    dbProbe.connected = true;
+    dbStatus.categories = parseInt(r.rows[0].n);
+  } catch (e: any) {
+    dbProbe.error = e.message;
+  }
+  res.json({
+    status: 'ok',
+    version: 'v2-autoinit',
+    timestamp: new Date().toISOString(),
+    name: 'FinanceWise API',
+    database: { ...dbStatus, probe: dbProbe },
+    env: { has_database_url: !!process.env.DATABASE_URL },
+  });
 });
 
 // Start server with DB initialization
 async function start() {
   try {
     await initializeDatabase();
+    dbStatus = { ok: true, tables: true };
   } catch (err: any) {
+    dbStatus = { ok: false, error: err.message };
     console.error('⚠️  Database initialization failed:', err.message);
     console.error('   The server will start, but database queries will fail.');
     console.error('   Check your DATABASE_URL environment variable.');
