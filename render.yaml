@@ -23,4 +23,4 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        value: "https://financewise-server.onrender.com/api" # Must include /api — the client appends route paths like /transactions directly
+        value: "https://finance-tracker-m7l4.onrender.com/api" # Must include /api — the client appends route paths like /transactions directly

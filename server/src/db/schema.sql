@@ -74,8 +74,8 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_transactions_date ON transactions(date DESC);
-CREATE INDEX idx_transactions_type ON transactions(type);
-CREATE INDEX idx_transactions_category ON transactions(category_id);
-CREATE INDEX idx_budgets_month_year ON budgets(month, year);
-CREATE INDEX idx_chat_messages_created ON chat_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
+CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category_id);
+CREATE INDEX IF NOT EXISTS idx_budgets_month_year ON budgets(month, year);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at DESC);
