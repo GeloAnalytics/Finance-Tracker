@@ -151,9 +151,11 @@ export const renderDebts = async () => {
 
   document.getElementById('debt-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const balance = parseFloat((document.getElementById('debt-balance') as HTMLInputElement).value);
     const data = {
       name: (document.getElementById('debt-name') as HTMLInputElement).value,
-      current_balance: parseFloat((document.getElementById('debt-balance') as HTMLInputElement).value),
+      current_balance: balance,
+      total_amount: balance, // Backend requires total_amount
       interest_rate: parseFloat((document.getElementById('debt-interest') as HTMLInputElement).value),
       minimum_payment: parseFloat((document.getElementById('debt-minimum') as HTMLInputElement).value)
     };
