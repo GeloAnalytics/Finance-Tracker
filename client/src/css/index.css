@@ -424,7 +424,7 @@ ul li, ol li {
 }
 
 .toast-success { border-left: 4px solid var(--text-primary); }
-.toast-error { border-left: 4px solid var(--text-muted); }
+.toast-error { border-left: 4px solid #ff6b6b; color: #ff9999; }
 .toast-info { border-left: 4px solid var(--border-light); }
 
 /* --- Page Header --- */
@@ -492,6 +492,17 @@ ul li, ol li {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-lg);
   margin-bottom: var(--space-xl);
+}
+
+/* --- Debt Page Specific Grid ---
+   Two columns: [stat card] [strategy card]
+   Strategy card naturally fills remaining space — no span-2 hacks */
+.debt-stats-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+  align-items: start;
 }
 
 /* --- Tables --- */
@@ -583,11 +594,15 @@ ul li, ol li {
   .mobile-header { display: flex; }
   .main-content { margin-left: 0; padding: 72px var(--space-md) var(--space-md); }
   .charts-grid { grid-template-columns: 1fr; }
+  /* When charts-grid is 1-column, span-2 items should fill the single column */
+  .charts-grid > [style*="grid-column: span 2"] { grid-column: 1 / -1; }
   .form-row { grid-template-columns: 1fr; }
   .page-title { font-size: var(--font-2xl); }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .debt-stats-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr; }
+  .debt-stats-grid { grid-template-columns: 1fr; }
 }

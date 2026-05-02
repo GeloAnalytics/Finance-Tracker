@@ -1,5 +1,11 @@
 import { api } from '../api.js';
 
+// Safe number formatter — avoids NaN display
+const fmt = (val: any, digits = 2): string => {
+  const n = parseFloat(val);
+  return isNaN(n) ? '0.00' : n.toLocaleString('en-US', { minimumFractionDigits: digits });
+};
+
 export const renderDashboard = async () => {
   const container = document.getElementById('page-container');
   if (!container) return;
@@ -52,7 +58,7 @@ export const renderDashboard = async () => {
       <div class="glass-card">
         <h3 style="margin-bottom: var(--space-md); text-transform: uppercase; letter-spacing: 1px;">Spending by Category</h3>
         <div class="chart-container" style="height: 250px; display: flex; align-items: center; justify-content: center;">
-          <!-- Mock Pie Chart / Circle -->
+          <!-- Mock Pie Chart -->
           <div style="width: 180px; height: 180px; border-radius: 50%; background: conic-gradient(#ffffff 0% 40%, #888888 40% 70%, #444444 70% 85%, #222222 85% 100%);"></div>
         </div>
       </div>
@@ -84,33 +90,33 @@ export const renderDashboard = async () => {
   try {
     const summary = await api.getDashboard();
     
-    // Update Stats
+    // Update Stats — use fmt() to guard against null/undefined/NaN
     const statsHtml = `
       <div class="glass-card stat-card balance">
         <div class="stat-icon">💰</div>
         <div class="stat-label">Total Balance</div>
-        <div class="stat-value">₱${parseFloat(summary.total_balance).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        <div class="stat-value">₱${fmt(summary.total_balance)}</div>
       </div>
       <div class="glass-card stat-card income">
         <div class="stat-icon">📈</div>
         <div class="stat-label">Monthly Income</div>
-        <div class="stat-value">₱${parseFloat(summary.monthly_income).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        <div class="stat-value">₱${fmt(summary.monthly_income)}</div>
       </div>
       <div class="glass-card stat-card expense">
         <div class="stat-icon">📉</div>
         <div class="stat-label">Monthly Expenses</div>
-        <div class="stat-value">₱${parseFloat(summary.monthly_expenses).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        <div class="stat-value">₱${fmt(summary.monthly_expenses)}</div>
       </div>
       <div class="glass-card stat-card debt">
         <div class="stat-icon">💳</div>
         <div class="stat-label">Total Debt</div>
-        <div class="stat-value">₱${parseFloat(summary.active_debts_total).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        <div class="stat-value">₱${fmt(summary.active_debts_total)}</div>
       </div>
     `;
     const statsContainer = document.getElementById('dashboard-stats');
     if (statsContainer) statsContainer.innerHTML = statsHtml;
 
-    // Update Recent Tx
+    // Update Recent Transactions
     const txContainer = document.getElementById('dashboard-recent-tx');
     if (txContainer) {
       if (!summary.recent_transactions || summary.recent_transactions.length === 0) {
@@ -119,10 +125,10 @@ export const renderDashboard = async () => {
         txContainer.innerHTML = summary.recent_transactions.map((tx: any) => `
           <tr>
             <td>${new Date(tx.date).toLocaleDateString()}</td>
-            <td>${tx.description}</td>
+            <td>${tx.description ?? '—'}</td>
             <td>${tx.category_name || 'Uncategorized'}</td>
             <td style="color: ${tx.type === 'income' ? 'var(--text-primary)' : 'var(--text-secondary)'}; font-weight: 600;">
-              ${tx.type === 'income' ? '+' : '-'}₱${parseFloat(tx.amount).toFixed(2)}
+              ${tx.type === 'income' ? '+' : '-'}₱${fmt(tx.amount)}
             </td>
           </tr>
         `).join('');
@@ -130,5 +136,17 @@ export const renderDashboard = async () => {
     }
   } catch (error) {
     console.error('Failed to load dashboard', error);
+    // Show zeros instead of crashing or showing "..."
+    const statsContainer = document.getElementById('dashboard-stats');
+    if (statsContainer) {
+      statsContainer.innerHTML = `
+        <div class="glass-card stat-card balance"><div class="stat-icon">💰</div><div class="stat-label">Total Balance</div><div class="stat-value">₱0.00</div></div>
+        <div class="glass-card stat-card income"><div class="stat-icon">📈</div><div class="stat-label">Monthly Income</div><div class="stat-value">₱0.00</div></div>
+        <div class="glass-card stat-card expense"><div class="stat-icon">📉</div><div class="stat-label">Monthly Expenses</div><div class="stat-value">₱0.00</div></div>
+        <div class="glass-card stat-card debt"><div class="stat-icon">💳</div><div class="stat-label">Total Debt</div><div class="stat-value">₱0.00</div></div>
+      `;
+    }
+    const txContainer = document.getElementById('dashboard-recent-tx');
+    if (txContainer) txContainer.innerHTML = '<tr><td colspan="4" class="empty-state">Could not load data. Check your connection.</td></tr>';
   }
 };

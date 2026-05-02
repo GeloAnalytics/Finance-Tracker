@@ -50,8 +50,8 @@ export const renderTransactions = async () => {
   `;
 
   // Append Modal HTML to body to avoid position:fixed bugs from CSS animations
-  const modalHTML = `
-    <!-- Add Transaction Modal (Hidden by default) -->
+  document.getElementById('tx-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
     <div id="tx-modal" class="modal-overlay hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -73,8 +73,8 @@ export const renderTransactions = async () => {
             </div>
           </div>
           <div class="form-group" style="margin-top: var(--space-md);">
-            <label class="form-label">Amount</label>
-            <input type="number" step="0.01" class="form-input" id="tx-amount" required>
+            <label class="form-label">Amount (₱)</label>
+            <input type="number" step="0.01" min="0.01" class="form-input" id="tx-amount" placeholder="0.00" required>
           </div>
           <div class="form-group" style="margin-top: var(--space-md);">
             <label class="form-label">Category</label>
@@ -84,24 +84,20 @@ export const renderTransactions = async () => {
           </div>
           <div class="form-group" style="margin-top: var(--space-md);">
             <label class="form-label">Description</label>
-            <input type="text" class="form-input" id="tx-description" required>
+            <input type="text" class="form-input" id="tx-description" placeholder="e.g. Monthly salary" required>
           </div>
           <div style="margin-top: var(--space-xl); display: flex; justify-content: flex-end; gap: var(--space-md);">
             <button type="button" class="btn btn-ghost" id="btn-cancel-modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Transaction</button>
+            <button type="submit" class="btn btn-primary" id="btn-save-tx">Save Transaction</button>
           </div>
         </form>
       </div>
     </div>
-  `;
-  // Clean up any old modals
-  document.getElementById('tx-modal')?.remove();
-  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  `);
 
   const loadTransactions = async () => {
     try {
       const response = await api.getTransactions();
-      // Server returns { data: [...], total, limit, offset } — unwrap the array
       const transactions = Array.isArray(response) ? response : (response.data ?? []);
       const list = document.getElementById('tx-list');
       if (!list) return;
@@ -114,7 +110,7 @@ export const renderTransactions = async () => {
       list.innerHTML = transactions.map((tx: any) => `
         <tr>
           <td>${new Date(tx.date).toLocaleDateString()}</td>
-          <td>${tx.description}</td>
+          <td>${tx.description ?? '—'}</td>
           <td><span class="badge badge-${tx.type}">${tx.category_name || 'Uncategorized'}</span></td>
           <td style="color: ${tx.type === 'income' ? 'var(--text-primary)' : 'var(--text-secondary)'}; font-weight: 600;">
             ${tx.type === 'income' ? '+' : '-'}₱${parseFloat(tx.amount).toFixed(2)}
@@ -147,7 +143,8 @@ export const renderTransactions = async () => {
       const categories = await api.getCategories();
       const select = document.getElementById('tx-category');
       if (select) {
-        select.innerHTML = '<option value="">Select Category...</option>' + categories.map((c: any) => `<option value="${c.id}">${c.name}</option>`).join('');
+        select.innerHTML = '<option value="">Select Category...</option>' +
+          categories.map((c: any) => `<option value="${c.id}">${c.icon ? c.icon + ' ' : ''}${c.name}</option>`).join('');
       }
     } catch (err) {
       console.error(err);
@@ -169,24 +166,45 @@ export const renderTransactions = async () => {
   document.getElementById('btn-close-modal')?.addEventListener('click', closeModal);
   document.getElementById('btn-cancel-modal')?.addEventListener('click', closeModal);
 
+  // Close modal on backdrop click
+  modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
   // Form submission
   document.getElementById('tx-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const data = {
-      type: (document.getElementById('tx-type') as HTMLSelectElement).value,
-      date: (document.getElementById('tx-date') as HTMLInputElement).value,
-      amount: parseFloat((document.getElementById('tx-amount') as HTMLInputElement).value),
-      category_id: parseInt((document.getElementById('tx-category') as HTMLSelectElement).value),
-      description: (document.getElementById('tx-description') as HTMLInputElement).value
-    };
+
+    const typeVal   = (document.getElementById('tx-type')        as HTMLSelectElement).value;
+    const dateVal   = (document.getElementById('tx-date')        as HTMLInputElement).value;
+    const amountVal = parseFloat((document.getElementById('tx-amount') as HTMLInputElement).value);
+    const catVal    = (document.getElementById('tx-category')    as HTMLSelectElement).value;
+    const descVal   = (document.getElementById('tx-description') as HTMLInputElement).value.trim();
+
+    // Validation guards
+    if (isNaN(amountVal) || amountVal <= 0) { showToast('Amount must be greater than ₱0', 'error'); return; }
+    if (!catVal)                            { showToast('Please select a category', 'error'); return; }
+    if (!descVal)                           { showToast('Please enter a description', 'error'); return; }
+    if (!dateVal)                           { showToast('Please select a date', 'error'); return; }
+
+    const submitBtn = document.getElementById('btn-save-tx') as HTMLButtonElement;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
 
     try {
-      await api.createTransaction(data);
-      showToast('Transaction added successfully', 'success');
+      await api.createTransaction({
+        type: typeVal,
+        date: dateVal,
+        amount: amountVal,
+        category_id: parseInt(catVal),  // safe: catVal checked for empty above
+        description: descVal,
+      });
+      showToast('Transaction added successfully!', 'success');
       closeModal();
       loadTransactions();
-    } catch (err) {
-      showToast('Failed to add transaction', 'error');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to add transaction', 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Transaction';
     }
   });
 
