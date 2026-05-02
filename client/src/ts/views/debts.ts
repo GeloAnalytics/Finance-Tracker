@@ -47,7 +47,9 @@ export const renderDebts = async () => {
 
   const loadDebts = async () => {
     try {
-      const debts = await api.getDebts();
+      const response = await api.getDebts();
+      // Server returns { data: [...], total_debt, count }
+      const debts = Array.isArray(response) ? response : (response.data ?? []);
       const list = document.getElementById('debt-list');
       const totalEl = document.getElementById('debt-total');
       
@@ -59,7 +61,8 @@ export const renderDebts = async () => {
         return;
       }
 
-      const total = debts.reduce((sum: number, d: any) => sum + parseFloat(d.balance), 0);
+      // Use server-computed total_debt if available, else sum current_balance
+      const total = response.total_debt ?? debts.reduce((sum: number, d: any) => sum + parseFloat(d.current_balance), 0);
       totalEl.textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2});
 
       list.innerHTML = debts.map((d: any) => {
@@ -73,7 +76,7 @@ export const renderDebts = async () => {
                 </div>
               </div>
               <div style="text-align: right;">
-                <div style="font-size: var(--font-xl); font-weight: 800; color: var(--text-primary); letter-spacing: -1px;">$${parseFloat(d.balance).toLocaleString()}</div>
+                <div style="font-size: var(--font-xl); font-weight: 800; color: var(--text-primary); letter-spacing: -1px;">$${parseFloat(d.current_balance).toLocaleString()}</div>
               </div>
             </div>
           </div>
@@ -93,7 +96,8 @@ export const renderDebts = async () => {
     res.innerHTML = 'Calculating...';
     try {
       const plan = await api.getPayoffPlan(method);
-      res.innerHTML = `Using the <strong>${method}</strong> method, you can be debt-free in <strong>${plan.monthsToPayoff || '?'} months</strong>. Total interest paid: <strong>$${parseFloat(plan.totalInterest).toLocaleString()}</strong>.`;
+      // Server returns { total_months, total_interest, total_paid, order, monthly_schedule }
+      res.innerHTML = `Using the <strong>${method}</strong> method, you can be debt-free in <strong>${plan.total_months ?? '?'} months</strong>. Total interest paid: <strong>$${parseFloat(plan.total_interest).toLocaleString()}</strong>.`;
     } catch (err) {
       res.innerHTML = '<span style="color: var(--text-muted); text-transform: uppercase;">Failed to calculate payoff plan.</span>';
     }
