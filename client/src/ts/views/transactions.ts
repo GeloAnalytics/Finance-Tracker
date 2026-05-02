@@ -111,7 +111,7 @@ export const renderTransactions = async () => {
           <td>${tx.description}</td>
           <td><span class="badge badge-${tx.type}">${tx.category_name || 'Uncategorized'}</span></td>
           <td style="color: ${tx.type === 'income' ? 'var(--text-primary)' : 'var(--text-secondary)'}; font-weight: 600;">
-            ${tx.type === 'income' ? '+' : '-'}$${parseFloat(tx.amount).toFixed(2)}
+            ${tx.type === 'income' ? '+' : '-'}₱${parseFloat(tx.amount).toFixed(2)}
           </td>
           <td>
             <button class="btn btn-icon btn-ghost delete-tx" data-id="${tx.id}">🗑️</button>

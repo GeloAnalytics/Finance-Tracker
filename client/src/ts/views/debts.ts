@@ -57,13 +57,13 @@ export const renderDebts = async () => {
 
       if (debts.length === 0) {
         list.innerHTML = '<div class="empty-state">No debts recorded. Great job!</div>';
-        totalEl.textContent = '$0.00';
+        totalEl.textContent = '₱0.00';
         return;
       }
 
       // Use server-computed total_debt if available, else sum current_balance
       const total = response.total_debt ?? debts.reduce((sum: number, d: any) => sum + parseFloat(d.current_balance), 0);
-      totalEl.textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2});
+      totalEl.textContent = '₱' + total.toLocaleString('en-US', {minimumFractionDigits: 2});
 
       list.innerHTML = debts.map((d: any) => {
         return `
@@ -72,11 +72,11 @@ export const renderDebts = async () => {
               <div>
                 <h4 style="font-size: var(--font-lg); text-transform: uppercase; letter-spacing: 1px;">${d.name}</h4>
                 <div style="font-size: var(--font-xs); color: var(--text-muted); margin-top: 4px; text-transform: uppercase;">
-                  Interest: <span style="color: var(--text-secondary);">${parseFloat(d.interest_rate).toFixed(2)}%</span> | Minimum: $${parseFloat(d.minimum_payment).toFixed(2)}
+                  Interest: <span style="color: var(--text-secondary);">${parseFloat(d.interest_rate).toFixed(2)}%</span> | Minimum: ₱${parseFloat(d.minimum_payment).toFixed(2)}
                 </div>
               </div>
               <div style="text-align: right;">
-                <div style="font-size: var(--font-xl); font-weight: 800; color: var(--text-primary); letter-spacing: -1px;">$${parseFloat(d.current_balance).toLocaleString()}</div>
+                <div style="font-size: var(--font-xl); font-weight: 800; color: var(--text-primary); letter-spacing: -1px;">₱${parseFloat(d.current_balance).toLocaleString()}</div>
               </div>
             </div>
           </div>
@@ -97,7 +97,7 @@ export const renderDebts = async () => {
     try {
       const plan = await api.getPayoffPlan(method);
       // Server returns { total_months, total_interest, total_paid, order, monthly_schedule }
-      res.innerHTML = `Using the <strong>${method}</strong> method, you can be debt-free in <strong>${plan.total_months ?? '?'} months</strong>. Total interest paid: <strong>$${parseFloat(plan.total_interest).toLocaleString()}</strong>.`;
+      res.innerHTML = `Using the <strong>${method}</strong> method, you can be debt-free in <strong>${plan.total_months ?? '?'} months</strong>. Total interest paid: <strong>₱${parseFloat(plan.total_interest).toLocaleString()}</strong>.`;
     } catch (err) {
       res.innerHTML = '<span style="color: var(--text-muted); text-transform: uppercase;">Failed to calculate payoff plan.</span>';
     }

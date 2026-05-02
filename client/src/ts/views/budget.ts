@@ -57,7 +57,7 @@ export const renderBudget = async () => {
       if (incomeEl) {
         try {
           const summary = await api.getDashboard();
-          incomeEl.textContent = '$' + parseFloat(summary.monthly_income).toLocaleString('en-US', { minimumFractionDigits: 2 });
+          incomeEl.textContent = '₱' + parseFloat(summary.monthly_income).toLocaleString('en-US', { minimumFractionDigits: 2 });
         } catch {
           incomeEl.textContent = 'N/A';
         }
@@ -76,7 +76,7 @@ export const renderBudget = async () => {
           <div>
             <div style="display: flex; justify-content: space-between; margin-bottom: var(--space-xs);">
               <span style="font-weight: 600;">${b.category_name}</span>
-              <span style="color: var(--text-muted);">$${parseFloat(b.spent).toFixed(2)} / $${parseFloat(b.amount).toFixed(2)}</span>
+              <span style="color: var(--text-muted);">₱${parseFloat(b.spent).toFixed(2)} / ₱${parseFloat(b.amount).toFixed(2)}</span>
             </div>
             <div class="progress-bar">
               <div class="progress-fill ${overLimit ? 'over' : ''}" style="width: ${percent}%"></div>
@@ -100,7 +100,7 @@ export const renderBudget = async () => {
         income = parseFloat(summary.monthly_income) || 5000;
       } catch { /* use fallback */ }
       await api.suggestBudgets(income);
-      showToast(`Budget suggested based on $${income.toLocaleString()} monthly income (50/30/20 rule)`, 'success');
+      showToast(`Budget suggested based on ₱${income.toLocaleString()} monthly income (50/30/20 rule)`, 'success');
       loadBudgets();
     } catch (err) {
       showToast('Failed to generate suggestions', 'error');

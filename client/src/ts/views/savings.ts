@@ -63,11 +63,11 @@ export const renderSavings = async () => {
             <div style="display: flex; justify-content: space-between; align-items: flex-end;">
               <div>
                 <div style="font-size: var(--font-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Saved</div>
-                <div style="font-size: var(--font-lg); font-weight: 600;">$${parseFloat(g.current_amount).toLocaleString()}</div>
+                <div style="font-size: var(--font-lg); font-weight: 600;">₱${parseFloat(g.current_amount).toLocaleString()}</div>
               </div>
               <div style="text-align: right;">
                 <div style="font-size: var(--font-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Goal</div>
-                <div style="font-size: var(--font-lg); font-weight: 600; color: var(--text-secondary);">$${parseFloat(g.target_amount).toLocaleString()}</div>
+                <div style="font-size: var(--font-lg); font-weight: 600; color: var(--text-secondary);">₱${parseFloat(g.target_amount).toLocaleString()}</div>
               </div>
             </div>
             
