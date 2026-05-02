@@ -94,7 +94,9 @@ export const renderTransactions = async () => {
 
   const loadTransactions = async () => {
     try {
-      const transactions = await api.getTransactions();
+      const response = await api.getTransactions();
+      // Server returns { data: [...], total, limit, offset } — unwrap the array
+      const transactions = Array.isArray(response) ? response : (response.data ?? []);
       const list = document.getElementById('tx-list');
       if (!list) return;
 
@@ -168,7 +170,7 @@ export const renderTransactions = async () => {
       type: (document.getElementById('tx-type') as HTMLSelectElement).value,
       date: (document.getElementById('tx-date') as HTMLInputElement).value,
       amount: parseFloat((document.getElementById('tx-amount') as HTMLInputElement).value),
-      categoryId: parseInt((document.getElementById('tx-category') as HTMLSelectElement).value),
+      category_id: parseInt((document.getElementById('tx-category') as HTMLSelectElement).value),
       description: (document.getElementById('tx-description') as HTMLInputElement).value
     };
 
