@@ -55,7 +55,10 @@ export const renderAdvisor = async () => {
     bubble.style.color = isUser ? 'var(--bg-deep)' : 'var(--text-primary)';
     bubble.style.lineHeight = '1.5';
     // Basic Markdown/line break replacement
-    bubble.innerHTML = content.replace(/\\n/g, '<br>');
+    let formatted = content.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/\* (.*?)(<br>|$)/g, '• $1$2'); // Bullet points
+    bubble.innerHTML = formatted;
 
     const avatar = document.createElement('div');
     avatar.style.fontSize = 'var(--font-xs)';
