@@ -3,9 +3,10 @@ import { getBudgets, createBudget, deleteBudget, suggestBudgets } from '../contr
 
 const router = Router();
 
+// IMPORTANT: specific routes must be registered BEFORE parameterized ones
+router.get('/suggest', suggestBudgets);
 router.get('/', getBudgets);
 router.post('/', createBudget);
 router.delete('/:id', deleteBudget);
-router.get('/suggest', suggestBudgets);
 
 export default router;

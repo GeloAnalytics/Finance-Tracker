@@ -25,7 +25,9 @@ export const renderSavings = async () => {
 
   const loadSavings = async () => {
     try {
-      const goals = await api.getSavings();
+      const response = await api.getSavings();
+      // Server returns { data: [...], total_saved, total_target, overall_progress }
+      const goals = Array.isArray(response) ? response : (response.data ?? []);
       const list = document.getElementById('savings-list');
       if (!list) return;
 
@@ -51,7 +53,7 @@ export const renderSavings = async () => {
               <div>
                 <div class="stat-icon" style="font-size: 2rem; margin-bottom: 0;">${g.icon || '🎯'}</div>
                 <h3 style="margin-top: var(--space-sm); text-transform: uppercase; letter-spacing: 1px;">${g.name}</h3>
-                ${g.target_date ? `<div style="font-size: var(--font-xs); color: var(--text-muted); text-transform: uppercase;">Target: ${new Date(g.target_date).toLocaleDateString()}</div>` : ''}
+                ${g.deadline ? `<div style="font-size: var(--font-xs); color: var(--text-muted); text-transform: uppercase;">Target: ${new Date(g.deadline).toLocaleDateString()}</div>` : ''}
               </div>
               <div style="text-align: right;">
                 <div style="font-size: var(--font-2xl); font-weight: 800; color: var(--text-primary);">${percent.toFixed(0)}%</div>

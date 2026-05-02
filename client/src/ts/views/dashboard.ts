@@ -89,22 +89,22 @@ export const renderDashboard = async () => {
       <div class="glass-card stat-card balance">
         <div class="stat-icon">💰</div>
         <div class="stat-label">Total Balance</div>
-        <div class="stat-value">$${parseFloat(summary.totalBalance).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        <div class="stat-value">$${parseFloat(summary.total_balance).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
       </div>
       <div class="glass-card stat-card income">
         <div class="stat-icon">📈</div>
         <div class="stat-label">Monthly Income</div>
-        <div class="stat-value">$${parseFloat(summary.monthlyIncome).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        <div class="stat-value">$${parseFloat(summary.monthly_income).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
       </div>
       <div class="glass-card stat-card expense">
         <div class="stat-icon">📉</div>
         <div class="stat-label">Monthly Expenses</div>
-        <div class="stat-value">$${parseFloat(summary.monthlyExpenses).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        <div class="stat-value">$${parseFloat(summary.monthly_expenses).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
       </div>
       <div class="glass-card stat-card debt">
         <div class="stat-icon">💳</div>
         <div class="stat-label">Total Debt</div>
-        <div class="stat-value">$${parseFloat(summary.totalDebt).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+        <div class="stat-value">$${parseFloat(summary.active_debts_total).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
       </div>
     `;
     const statsContainer = document.getElementById('dashboard-stats');
@@ -113,14 +113,14 @@ export const renderDashboard = async () => {
     // Update Recent Tx
     const txContainer = document.getElementById('dashboard-recent-tx');
     if (txContainer) {
-      if (summary.recentTransactions.length === 0) {
+      if (!summary.recent_transactions || summary.recent_transactions.length === 0) {
         txContainer.innerHTML = '<tr><td colspan="4" class="empty-state">No recent transactions.</td></tr>';
       } else {
-        txContainer.innerHTML = summary.recentTransactions.map((tx: any) => `
+        txContainer.innerHTML = summary.recent_transactions.map((tx: any) => `
           <tr>
             <td>${new Date(tx.date).toLocaleDateString()}</td>
             <td>${tx.description}</td>
-            <td>${tx.category_name}</td>
+            <td>${tx.category_name || 'Uncategorized'}</td>
             <td style="color: ${tx.type === 'income' ? 'var(--text-primary)' : 'var(--text-secondary)'}; font-weight: 600;">
               ${tx.type === 'income' ? '+' : '-'}$${parseFloat(tx.amount).toFixed(2)}
             </td>

@@ -37,7 +37,8 @@ export async function getTransactions(req: Request, res: Response) {
     }
 
     query += ` ORDER BY t.date DESC, t.created_at DESC`;
-    query += ` LIMIT $${paramIdx++} OFFSET $${paramIdx++}`;
+    query += ` LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
+    paramIdx += 2;
     params.push(parseInt(limit as string), parseInt(offset as string));
 
     const result = await pool.query(query, params);

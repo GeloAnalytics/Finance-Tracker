@@ -49,16 +49,27 @@ export const renderBudget = async () => {
   const loadBudgets = async () => {
     try {
       const data = await api.getBudgets();
-      // Assume API returns { summary: { income }, items: [{ category_name, amount, spent }] }
       const list = document.getElementById('budget-list');
       if (!list) return;
 
-      if (!data.items || data.items.length === 0) {
+      // Update income stat from dashboard if possible
+      const incomeEl = document.getElementById('budget-income');
+      if (incomeEl) {
+        try {
+          const summary = await api.getDashboard();
+          incomeEl.textContent = '$' + parseFloat(summary.monthly_income).toLocaleString('en-US', { minimumFractionDigits: 2 });
+        } catch {
+          incomeEl.textContent = 'N/A';
+        }
+      }
+
+      // Server returns { data: [...], groups, total_budget, month, year }
+      if (!data.data || data.data.length === 0) {
         list.innerHTML = '<div class="empty-state">No budgets set. Use "AI Suggest Budget" to get started!</div>';
         return;
       }
 
-      list.innerHTML = data.items.map((b: any) => {
+      list.innerHTML = data.data.map((b: any) => {
         const percent = Math.min(100, (b.spent / b.amount) * 100);
         const overLimit = percent >= 100;
         return `
@@ -82,9 +93,14 @@ export const renderBudget = async () => {
 
   document.getElementById('btn-suggest-budget')?.addEventListener('click', async () => {
     try {
-      // Mock logic: assuming income is roughly 5000
-      await api.suggestBudgets(5000);
-      showToast('Budget suggested based on 50/30/20 rule', 'success');
+      // Get actual monthly income from dashboard instead of hardcoded value
+      let income = 5000;
+      try {
+        const summary = await api.getDashboard();
+        income = parseFloat(summary.monthly_income) || 5000;
+      } catch { /* use fallback */ }
+      await api.suggestBudgets(income);
+      showToast(`Budget suggested based on $${income.toLocaleString()} monthly income (50/30/20 rule)`, 'success');
       loadBudgets();
     } catch (err) {
       showToast('Failed to generate suggestions', 'error');

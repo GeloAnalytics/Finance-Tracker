@@ -111,7 +111,8 @@ export const renderAdvisor = async () => {
 
     try {
       const response = await api.sendMessage(message);
-      appendMessage('assistant', response.reply);
+      // Server returns { role: 'advisor', content: '...' }
+      appendMessage('advisor', response.content);
     } catch (err) {
       appendMessage('assistant', 'Sorry, I encountered an error while processing your request.');
     } finally {
