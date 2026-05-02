@@ -1,7 +1,12 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import dns from 'dns';
 
 dotenv.config();
+
+// Force IPv4 DNS resolution — fixes ENETUNREACH when Render resolves
+// Supabase hostnames to IPv6 addresses that are unreachable.
+dns.setDefaultResultOrder('ipv4first');
 
 const isProduction = !!process.env.DATABASE_URL;
 
@@ -37,3 +42,4 @@ pool.on('error', (err) => {
 });
 
 export default pool;
+
