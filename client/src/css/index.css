@@ -378,8 +378,7 @@ ul li, ol li {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-lg);
-  padding-bottom: var(--space-sm);
+  padding: var(--space-lg) var(--space-lg) var(--space-sm) var(--space-lg);
   border-bottom: 1px solid var(--border-subtle);
 }
 
