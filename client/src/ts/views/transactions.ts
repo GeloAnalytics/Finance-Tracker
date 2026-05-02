@@ -47,15 +47,18 @@ export const renderTransactions = async () => {
         </table>
       </div>
     </div>
+  `;
 
+  // Append Modal HTML to body to avoid position:fixed bugs from CSS animations
+  const modalHTML = `
     <!-- Add Transaction Modal (Hidden by default) -->
     <div id="tx-modal" class="modal-overlay hidden">
-      <div class="modal-content glass-card">
+      <div class="modal-content">
         <div class="modal-header">
           <h3 class="modal-title">New Transaction</h3>
           <button class="modal-close" id="btn-close-modal">&times;</button>
         </div>
-        <form id="tx-form">
+        <form id="tx-form" style="padding: var(--space-lg);">
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Type</label>
@@ -91,6 +94,9 @@ export const renderTransactions = async () => {
       </div>
     </div>
   `;
+  // Clean up any old modals
+  document.getElementById('tx-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
 
   const loadTransactions = async () => {
     try {

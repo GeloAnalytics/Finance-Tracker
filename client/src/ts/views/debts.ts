@@ -77,7 +77,8 @@ export const renderDebts = async () => {
       </div>
     </div>
   `;
-  container.insertAdjacentHTML('beforeend', modalHTML);
+  document.getElementById('debt-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
 
   const loadDebts = async () => {
     try {
