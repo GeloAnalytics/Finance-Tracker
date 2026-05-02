@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { marked } from 'marked';
 
 export const renderAdvisor = async () => {
   const container = document.getElementById('page-container');
@@ -13,18 +14,18 @@ export const renderAdvisor = async () => {
       <button class="btn btn-ghost" id="btn-clear-chat">Clear History</button>
     </div>
 
-    <div class="glass-card animate-in stagger-2" style="display: flex; flex-direction: column; height: 60vh; max-height: 600px; padding: 0; overflow: hidden;">
+    <div class="glass-card animate-in stagger-2" style="display: flex; flex-direction: column; height: calc(100vh - 200px); max-height: 700px; padding: 0; overflow: hidden; min-height: 400px;">
       
       <!-- Chat History -->
-      <div id="chat-history" style="flex: 1; overflow-y: auto; padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md);">
+      <div id="chat-history" style="flex: 1; overflow-y: auto; padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-md);">
         <div class="empty-state">Loading chat...</div>
       </div>
 
       <!-- Chat Input -->
       <div style="padding: var(--space-md); border-top: 1px solid var(--border-subtle); background: var(--bg-surface);">
-        <form id="chat-form" style="display: flex; gap: var(--space-sm);">
-          <input type="text" id="chat-input" class="form-input" style="flex: 1;" placeholder="Ask about budgets, investing, or your spending habits..." required autocomplete="off">
-          <button type="submit" class="btn btn-primary" id="btn-send-chat" style="min-width: 100px;">Send 🚀</button>
+        <form id="chat-form" style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
+          <input type="text" id="chat-input" class="form-input" style="flex: 1; min-width: 200px;" placeholder="Ask about budgets, investing..." required autocomplete="off">
+          <button type="submit" class="btn btn-primary" id="btn-send-chat" style="flex-shrink: 0;">Send 🚀</button>
         </form>
       </div>
     </div>
@@ -32,7 +33,7 @@ export const renderAdvisor = async () => {
 
   const chatHistoryEl = document.getElementById('chat-history');
 
-  const appendMessage = (role: string, content: string) => {
+  const appendMessage = async (role: string, content: string) => {
     if (!chatHistoryEl) return;
     
     // Remove empty state if present
@@ -44,7 +45,7 @@ export const renderAdvisor = async () => {
     msgEl.style.display = 'flex';
     msgEl.style.flexDirection = 'column';
     msgEl.style.alignItems = isUser ? 'flex-end' : 'flex-start';
-    msgEl.style.maxWidth = '80%';
+    msgEl.style.maxWidth = '95%';
     msgEl.style.alignSelf = isUser ? 'flex-end' : 'flex-start';
     msgEl.style.animation = 'slideUp 0.3s ease';
 
@@ -53,12 +54,23 @@ export const renderAdvisor = async () => {
     bubble.style.border = '1px solid var(--border-light)';
     bubble.style.background = isUser ? 'var(--text-primary)' : 'var(--bg-surface)';
     bubble.style.color = isUser ? 'var(--bg-deep)' : 'var(--text-primary)';
-    bubble.style.lineHeight = '1.5';
-    // Basic Markdown/line break replacement
-    let formatted = content.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
-    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    formatted = formatted.replace(/\* (.*?)(<br>|$)/g, '• $1$2'); // Bullet points
-    bubble.innerHTML = formatted;
+    bubble.style.lineHeight = '1.6';
+    
+    // Parse Markdown safely
+    try {
+      const parsed = await marked.parse(content, { breaks: true });
+      bubble.innerHTML = parsed;
+    } catch {
+      bubble.textContent = content;
+    }
+    
+    // Quick fix for markdown p tags margins inside chat bubbles
+    Array.from(bubble.getElementsByTagName('p')).forEach(p => {
+      p.style.margin = '0 0 8px 0';
+      p.style.wordBreak = 'break-word';
+    });
+    const lastP = bubble.querySelector('p:last-child');
+    if (lastP) (lastP as HTMLElement).style.margin = '0';
 
     const avatar = document.createElement('div');
     avatar.style.fontSize = 'var(--font-xs)';
@@ -92,9 +104,9 @@ export const renderAdvisor = async () => {
         return;
       }
 
-      history.forEach((msg: any) => {
-        appendMessage(msg.role, msg.content);
-      });
+      for (const msg of history) {
+        await appendMessage(msg.role, msg.content);
+      }
     } catch (err) {
       console.error(err);
       if (chatHistoryEl) chatHistoryEl.innerHTML = '<div class="empty-state" style="color: var(--color-danger);">Failed to load chat history.</div>';
