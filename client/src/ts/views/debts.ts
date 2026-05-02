@@ -45,6 +45,40 @@ export const renderDebts = async () => {
     </div>
   `;
 
+  // Append Modal HTML
+  const modalHTML = `
+    <div class="modal-overlay hidden" id="debt-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">Add New Debt</h3>
+          <button class="modal-close" id="btn-close-debt-modal">×</button>
+        </div>
+        <form id="debt-form" style="padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md);">
+          <div class="form-group">
+            <label class="form-label">Debt Name (e.g. Car Loan)</label>
+            <input type="text" id="debt-name" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Balance (₱)</label>
+            <input type="number" id="debt-balance" class="form-input" step="0.01" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Interest Rate (%)</label>
+              <input type="number" id="debt-interest" class="form-input" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Minimum Payment (₱)</label>
+              <input type="number" id="debt-minimum" class="form-input" step="0.01" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top: var(--space-md);">Save Debt</button>
+        </form>
+      </div>
+    </div>
+  `;
+  container.insertAdjacentHTML('beforeend', modalHTML);
+
   const loadDebts = async () => {
     try {
       const response = await api.getDebts();
@@ -100,6 +134,36 @@ export const renderDebts = async () => {
       res.innerHTML = `Using the <strong>${method}</strong> method, you can be debt-free in <strong>${plan.total_months ?? '?'} months</strong>. Total interest paid: <strong>₱${parseFloat(plan.total_interest).toLocaleString()}</strong>.`;
     } catch (err) {
       res.innerHTML = '<span style="color: var(--text-muted); text-transform: uppercase;">Failed to calculate payoff plan.</span>';
+    }
+  });
+
+  // Modal Logic
+  const modal = document.getElementById('debt-modal');
+  document.getElementById('btn-new-debt')?.addEventListener('click', () => {
+    (document.getElementById('debt-form') as HTMLFormElement).reset();
+    modal?.classList.remove('hidden');
+  });
+
+  document.getElementById('btn-close-debt-modal')?.addEventListener('click', () => {
+    modal?.classList.add('hidden');
+  });
+
+  document.getElementById('debt-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+      name: (document.getElementById('debt-name') as HTMLInputElement).value,
+      current_balance: parseFloat((document.getElementById('debt-balance') as HTMLInputElement).value),
+      interest_rate: parseFloat((document.getElementById('debt-interest') as HTMLInputElement).value),
+      minimum_payment: parseFloat((document.getElementById('debt-minimum') as HTMLInputElement).value)
+    };
+
+    try {
+      await api.createDebt(data);
+      showToast('Debt added successfully', 'success');
+      modal?.classList.add('hidden');
+      loadDebts();
+    } catch (err) {
+      showToast('Failed to add debt', 'error');
     }
   });
 
