@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="FinanceWise — Your personal finance tracker with AI-powered financial advisor. Track income, expenses, budgets, debts, and savings goals." />
+  <title>FinanceWise — Personal Finance Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/css/index.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>" />
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">💰</span>
+          <h1 class="logo-text">FinanceWise</h1>
+        </div>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#dashboard" class="nav-link active" data-page="dashboard"><span class="nav-icon">📊</span><span class="nav-label">Dashboard</span></a></li>
+        <li><a href="#transactions" class="nav-link" data-page="transactions"><span class="nav-icon">💰</span><span class="nav-label">Transactions</span></a></li>
+        <li><a href="#budget" class="nav-link" data-page="budget"><span class="nav-icon">📋</span><span class="nav-label">Budget</span></a></li>
+        <li><a href="#debts" class="nav-link" data-page="debts"><span class="nav-icon">💳</span><span class="nav-label">Debt Tracker</span></a></li>
+        <li><a href="#savings" class="nav-link" data-page="savings"><span class="nav-icon">🎯</span><span class="nav-label">Savings Goals</span></a></li>
+        <li><a href="#advisor" class="nav-link" data-page="advisor"><span class="nav-icon">🤖</span><span class="nav-label">AI Advisor</span></a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-text">Built with 💜 for your financial future</div>
+      </div>
+    </nav>
+
+    <!-- Mobile Header -->
+    <header id="mobile-header" class="mobile-header">
+      <button id="menu-toggle" class="menu-toggle" aria-label="Toggle menu">☰</button>
+      <span class="mobile-logo">💰 FinanceWise</span>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+      <div id="page-container" class="page-container"></div>
+    </main>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-content" class="modal-content glass-card"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module" src="/src/ts/main.ts"></script>
+</body>
+</html>
