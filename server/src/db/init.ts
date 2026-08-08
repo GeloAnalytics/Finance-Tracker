@@ -5,6 +5,10 @@ import pool from './connection';
  * 1. Test connectivity
  * 2. Create tables if they don't exist
  * 3. Seed categories if empty
+ *
+ * Schema changes now belong in migrations/ (see `npm run migrate:create`),
+ * not here — this stays only as a defensive fallback for a fresh boot before
+ * migrations have been run, so it must keep matching the baseline migration.
  */
 export async function initializeDatabase(): Promise<void> {
   const client = await pool.connect();
