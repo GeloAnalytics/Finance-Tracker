@@ -63,10 +63,6 @@ export async function createBudget(req: Request, res: Response) {
   try {
     const { category_id, amount, month, year } = req.body;
 
-    if (!category_id || amount === undefined || !month || !year) {
-      return res.status(400).json({ error: 'category_id, amount, month, and year are required' });
-    }
-
     // Upsert — update if exists for this category/month/year
     const result = await pool.query(`
       INSERT INTO budgets (category_id, amount, month, year)

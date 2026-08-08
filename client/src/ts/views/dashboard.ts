@@ -1,9 +1,10 @@
 import { api } from '../api.js';
+import { escapeHtml } from '../utils/sanitize.js';
+import type { Transaction } from '../types.js';
 
-// Safe number formatter — avoids NaN display
-const fmt = (val: any, digits = 2): string => {
-  const n = parseFloat(val);
-  return isNaN(n) ? '0.00' : n.toLocaleString('en-US', { minimumFractionDigits: digits });
+// Safe number formatter — guards against an unexpected non-numeric API response
+const fmt = (val: number, digits = 2): string => {
+  return isNaN(val) ? '0.00' : val.toLocaleString('en-US', { minimumFractionDigits: digits });
 };
 
 export const renderDashboard = async () => {
@@ -122,11 +123,11 @@ export const renderDashboard = async () => {
       if (!summary.recent_transactions || summary.recent_transactions.length === 0) {
         txContainer.innerHTML = '<tr><td colspan="4" class="empty-state">No recent transactions.</td></tr>';
       } else {
-        txContainer.innerHTML = summary.recent_transactions.map((tx: any) => `
+        txContainer.innerHTML = summary.recent_transactions.map((tx: Transaction) => `
           <tr>
             <td>${new Date(tx.date).toLocaleDateString()}</td>
-            <td>${tx.description ?? '—'}</td>
-            <td>${tx.category_name || 'Uncategorized'}</td>
+            <td>${escapeHtml(tx.description ?? '—')}</td>
+            <td>${escapeHtml(tx.category_name || 'Uncategorized')}</td>
             <td style="color: ${tx.type === 'income' ? 'var(--text-primary)' : 'var(--text-secondary)'}; font-weight: 600;">
               ${tx.type === 'income' ? '+' : '-'}₱${fmt(tx.amount)}
             </td>

@@ -1,5 +1,7 @@
 import { api } from '../api.js';
 import { showToast } from '../main.js';
+import { escapeHtml } from '../utils/sanitize.js';
+import type { SavingsGoal } from '../types.js';
 
 export const renderSavings = async () => {
   const container = document.getElementById('page-container');
@@ -65,7 +67,7 @@ export const renderSavings = async () => {
   const loadSavings = async () => {
     try {
       const response = await api.getSavings();
-      const goals = Array.isArray(response) ? response : (response.data ?? []);
+      const goals = response.data ?? [];
       const list = document.getElementById('savings-list');
       if (!list) return;
 
@@ -80,9 +82,9 @@ export const renderSavings = async () => {
         return;
       }
 
-      list.innerHTML = goals.map((g: any) => {
-        const current = parseFloat(g.current_amount) || 0;
-        const target  = parseFloat(g.target_amount)  || 1;
+      list.innerHTML = goals.map((g: SavingsGoal) => {
+        const current = g.current_amount || 0;
+        const target  = g.target_amount  || 1;
         const percent = Math.min(100, (current / target) * 100);
         return `
           <div class="glass-card" style="position: relative; overflow: hidden;">
@@ -91,8 +93,8 @@ export const renderSavings = async () => {
             
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-xl);">
               <div>
-                <div class="stat-icon" style="font-size: 2rem; margin-bottom: 0;">${g.icon || '🎯'}</div>
-                <h3 style="margin-top: var(--space-sm); text-transform: uppercase; letter-spacing: 1px;">${g.name}</h3>
+                <div class="stat-icon" style="font-size: 2rem; margin-bottom: 0;">${escapeHtml(g.icon || '🎯')}</div>
+                <h3 style="margin-top: var(--space-sm); text-transform: uppercase; letter-spacing: 1px;">${escapeHtml(g.name)}</h3>
                 ${g.deadline ? `<div style="font-size: var(--font-xs); color: var(--text-muted); text-transform: uppercase;">Target: ${new Date(g.deadline).toLocaleDateString()}</div>` : ''}
               </div>
               <div style="text-align: right;">

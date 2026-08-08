@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 export const renderAdvisor = async () => {
   const container = document.getElementById('page-container');
@@ -56,10 +57,11 @@ export const renderAdvisor = async () => {
     bubble.style.color = isUser ? 'var(--bg-deep)' : 'var(--text-primary)';
     bubble.style.lineHeight = '1.6';
     
-    // Parse Markdown safely
+    // Parse Markdown, then sanitize before inserting — content may originate
+    // from user input or from the AI model, neither of which is trusted HTML.
     try {
       const parsed = await marked.parse(content, { breaks: true });
-      bubble.innerHTML = parsed;
+      bubble.innerHTML = DOMPurify.sanitize(parsed);
     } catch {
       bubble.textContent = content;
     }
@@ -129,6 +131,7 @@ export const renderAdvisor = async () => {
       // Server returns { role: 'advisor', content: '...' }
       appendMessage('advisor', response.content);
     } catch (err) {
+      console.error(err);
       appendMessage('assistant', 'Sorry, I encountered an error while processing your request.');
     } finally {
       btn.disabled = false;

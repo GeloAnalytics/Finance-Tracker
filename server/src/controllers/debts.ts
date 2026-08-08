@@ -37,14 +37,10 @@ export async function createDebt(req: Request, res: Response) {
   try {
     const { name, total_amount, current_balance, interest_rate, minimum_payment, due_date } = req.body;
 
-    if (!name || !total_amount || current_balance === undefined) {
-      return res.status(400).json({ error: 'name, total_amount, and current_balance are required' });
-    }
-
     const result = await pool.query(
       `INSERT INTO debts (name, total_amount, current_balance, interest_rate, minimum_payment, due_date)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [name, total_amount, current_balance, interest_rate || 0, minimum_payment || 0, due_date || null]
+      [name, total_amount, current_balance, interest_rate, minimum_payment, due_date ?? null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -115,7 +111,7 @@ export async function getPayoffPlan(req: Request, res: Response) {
     }
 
     // Clone debts for calculation
-    let debts = debtsResult.rows.map((d: any) => ({
+    const debts = debtsResult.rows.map((d: any) => ({
       name: d.name,
       balance: parseFloat(d.current_balance),
       rate: parseFloat(d.interest_rate) / 100 / 12, // monthly rate
@@ -138,7 +134,7 @@ export async function getPayoffPlan(req: Request, res: Response) {
 
     // Simulate payoff
     const schedule: any[] = [];
-    let activeDebts = debts.map(d => ({ ...d }));
+    const activeDebts = debts.map(d => ({ ...d }));
 
     while (activeDebts.some(d => d.balance > 0) && month < maxMonths) {
       month++;

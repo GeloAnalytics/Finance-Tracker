@@ -47,6 +47,7 @@ export async function clearHistory(req: Request, res: Response) {
     await pool.query('DELETE FROM chat_messages');
     res.json({ message: 'Chat history cleared' });
   } catch (err: any) {
+    console.error('Error clearing chat history:', err.message);
     res.status(500).json({ error: 'Failed to clear history' });
   }
 }

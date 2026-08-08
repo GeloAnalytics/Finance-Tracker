@@ -1,5 +1,7 @@
 import { api } from '../api.js';
 import { showToast } from '../main.js';
+import { escapeHtml } from '../utils/sanitize.js';
+import type { Debt } from '../types.js';
 
 export const renderDebts = async () => {
   const container = document.getElementById('page-container');
@@ -81,7 +83,7 @@ export const renderDebts = async () => {
   const loadDebts = async () => {
     try {
       const response = await api.getDebts();
-      const debts = Array.isArray(response) ? response : (response.data ?? []);
+      const debts = response.data ?? [];
       const list = document.getElementById('debt-list');
       const totalEl = document.getElementById('debt-total');
       if (!list || !totalEl) return;
@@ -92,18 +94,18 @@ export const renderDebts = async () => {
         return;
       }
 
-      const total = response.total_debt ?? debts.reduce((sum: number, d: any) => sum + parseFloat(d.current_balance || 0), 0);
+      const total = response.total_debt ?? debts.reduce((sum: number, d: Debt) => sum + (d.current_balance || 0), 0);
       totalEl.textContent = '₱' + Number(total).toLocaleString('en-US', { minimumFractionDigits: 2 });
 
-      list.innerHTML = debts.map((d: any) => {
-        const balance  = parseFloat(d.current_balance) || 0;
-        const interest = parseFloat(d.interest_rate)   || 0;
-        const minimum  = parseFloat(d.minimum_payment) || 0;
+      list.innerHTML = debts.map((d: Debt) => {
+        const balance  = d.current_balance || 0;
+        const interest = d.interest_rate   || 0;
+        const minimum  = d.minimum_payment || 0;
         return `
           <div style="padding: var(--space-md); border: 1px solid var(--border-light); background: var(--bg-surface);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-sm);">
               <div>
-                <h4 style="font-size: var(--font-lg); text-transform: uppercase; letter-spacing: 1px;">${d.name}</h4>
+                <h4 style="font-size: var(--font-lg); text-transform: uppercase; letter-spacing: 1px;">${escapeHtml(d.name)}</h4>
                 <div style="font-size: var(--font-xs); color: var(--text-muted); margin-top: 4px; text-transform: uppercase;">
                   Interest: <span style="color: var(--text-secondary);">${interest.toFixed(2)}%</span>
                   &nbsp;|&nbsp; Min. Payment: ₱${minimum.toFixed(2)}
@@ -153,8 +155,8 @@ export const renderDebts = async () => {
 
     try {
       const plan = await api.getPayoffPlan(method);
-      const interest = isNaN(parseFloat(plan.total_interest)) ? '0.00' : parseFloat(plan.total_interest).toLocaleString('en-US', { minimumFractionDigits: 2 });
-      res.innerHTML = `Using the <strong>${method}</strong> method, you can be debt-free in <strong>${plan.total_months ?? '?'} months</strong>. Total interest paid: <strong>₱${interest}</strong>.`;
+      const interest = isNaN(plan.total_interest) ? '0.00' : plan.total_interest.toLocaleString('en-US', { minimumFractionDigits: 2 });
+      res.innerHTML = `Using the <strong>${escapeHtml(method)}</strong> method, you can be debt-free in <strong>${escapeHtml(plan.total_months ?? '?')} months</strong>. Total interest paid: <strong>₱${interest}</strong>.`;
     } catch {
       res.innerHTML = '<span style="color: var(--text-muted); text-transform: uppercase;">No active debts to calculate. Add a debt first.</span>';
     } finally {

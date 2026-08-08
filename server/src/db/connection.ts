@@ -1,7 +1,14 @@
-import { Pool } from 'pg';
+import { Pool, types } from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
+
+// pg returns NUMERIC/DECIMAL columns as strings by default (to avoid precision
+// loss), which is what made every money field a string-or-number toss-up on
+// the client and drove most of the historical NaN bugs. This app has no need
+// for arbitrary precision, so parse them as JS numbers at the source instead
+// of leaving every caller to defensively parseFloat().
+types.setTypeParser(1700 /* NUMERIC */, (val: string) => parseFloat(val));
 
 
 const isProduction = !!process.env.DATABASE_URL;

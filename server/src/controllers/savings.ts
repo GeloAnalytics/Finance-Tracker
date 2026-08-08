@@ -14,6 +14,7 @@ export async function getSavingsGoals(req: Request, res: Response) {
       overall_progress: totalTarget > 0 ? Math.round((totalSaved / totalTarget) * 100) : 0,
     });
   } catch (err: any) {
+    console.error('Error fetching savings goals:', err.message);
     res.status(500).json({ error: 'Failed to fetch savings goals' });
   }
 }
@@ -22,16 +23,14 @@ export async function getSavingsGoals(req: Request, res: Response) {
 export async function createSavingsGoal(req: Request, res: Response) {
   try {
     const { name, target_amount, current_amount, deadline, icon } = req.body;
-    if (!name || !target_amount) {
-      return res.status(400).json({ error: 'name and target_amount are required' });
-    }
     const result = await pool.query(
       `INSERT INTO savings_goals (name, target_amount, current_amount, deadline, icon)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [name, target_amount, current_amount || 0, deadline || null, icon || '🎯']
+      [name, target_amount, current_amount, deadline ?? null, icon || '🎯']
     );
     res.status(201).json(result.rows[0]);
   } catch (err: any) {
+    console.error('Error creating savings goal:', err.message);
     res.status(500).json({ error: 'Failed to create savings goal' });
   }
 }
@@ -52,6 +51,7 @@ export async function updateSavingsGoal(req: Request, res: Response) {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Savings goal not found' });
     res.json(result.rows[0]);
   } catch (err: any) {
+    console.error('Error updating savings goal:', err.message);
     res.status(500).json({ error: 'Failed to update savings goal' });
   }
 }
@@ -64,6 +64,7 @@ export async function deleteSavingsGoal(req: Request, res: Response) {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Savings goal not found' });
     res.json({ message: 'Savings goal deleted', id: parseInt(id) });
   } catch (err: any) {
+    console.error('Error deleting savings goal:', err.message);
     res.status(500).json({ error: 'Failed to delete savings goal' });
   }
 }
@@ -73,7 +74,6 @@ export async function contributeSavings(req: Request, res: Response) {
   try {
     const { id } = req.params;
     const { amount } = req.body;
-    if (!amount || amount <= 0) return res.status(400).json({ error: 'Positive amount is required' });
     const result = await pool.query(
       `UPDATE savings_goals SET current_amount = current_amount + $1,
         is_completed = CASE WHEN current_amount + $1 >= target_amount THEN true ELSE false END,
@@ -83,6 +83,7 @@ export async function contributeSavings(req: Request, res: Response) {
     if (result.rows.length === 0) return res.status(404).json({ error: 'Savings goal not found' });
     res.json(result.rows[0]);
   } catch (err: any) {
+    console.error('Error contributing to savings goal:', err.message);
     res.status(500).json({ error: 'Failed to contribute to savings goal' });
   }
 }

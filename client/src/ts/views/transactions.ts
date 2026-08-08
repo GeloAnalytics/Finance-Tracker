@@ -1,5 +1,7 @@
 import { api } from '../api.js';
 import { showToast } from '../main.js';
+import { escapeHtml } from '../utils/sanitize.js';
+import type { Transaction, Category } from '../types.js';
 
 export const renderTransactions = async () => {
   const container = document.getElementById('page-container');
@@ -98,7 +100,7 @@ export const renderTransactions = async () => {
   const loadTransactions = async () => {
     try {
       const response = await api.getTransactions();
-      const transactions = Array.isArray(response) ? response : (response.data ?? []);
+      const transactions = response.data ?? [];
       const list = document.getElementById('tx-list');
       if (!list) return;
 
@@ -107,13 +109,13 @@ export const renderTransactions = async () => {
         return;
       }
 
-      list.innerHTML = transactions.map((tx: any) => `
+      list.innerHTML = transactions.map((tx: Transaction) => `
         <tr>
           <td>${new Date(tx.date).toLocaleDateString()}</td>
-          <td>${tx.description ?? '—'}</td>
-          <td><span class="badge badge-${tx.type}">${tx.category_name || 'Uncategorized'}</span></td>
+          <td>${escapeHtml(tx.description ?? '—')}</td>
+          <td><span class="badge badge-${tx.type}">${escapeHtml(tx.category_name || 'Uncategorized')}</span></td>
           <td style="color: ${tx.type === 'income' ? 'var(--text-primary)' : 'var(--text-secondary)'}; font-weight: 600;">
-            ${tx.type === 'income' ? '+' : '-'}₱${parseFloat(tx.amount).toFixed(2)}
+            ${tx.type === 'income' ? '+' : '-'}₱${tx.amount.toFixed(2)}
           </td>
           <td>
             <button class="btn btn-icon btn-ghost delete-tx" data-id="${tx.id}">🗑️</button>
@@ -144,7 +146,7 @@ export const renderTransactions = async () => {
       const select = document.getElementById('tx-category');
       if (select) {
         select.innerHTML = '<option value="">Select Category...</option>' +
-          categories.map((c: any) => `<option value="${c.id}">${c.icon ? c.icon + ' ' : ''}${c.name}</option>`).join('');
+          categories.map((c: Category) => `<option value="${c.id}">${c.icon ? escapeHtml(c.icon) + ' ' : ''}${escapeHtml(c.name)}</option>`).join('');
       }
     } catch (err) {
       console.error(err);
@@ -173,17 +175,19 @@ export const renderTransactions = async () => {
   document.getElementById('tx-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const typeVal   = (document.getElementById('tx-type')        as HTMLSelectElement).value;
+    const typeRaw   = (document.getElementById('tx-type')        as HTMLSelectElement).value;
     const dateVal   = (document.getElementById('tx-date')        as HTMLInputElement).value;
     const amountVal = parseFloat((document.getElementById('tx-amount') as HTMLInputElement).value);
     const catVal    = (document.getElementById('tx-category')    as HTMLSelectElement).value;
     const descVal   = (document.getElementById('tx-description') as HTMLInputElement).value.trim();
 
     // Validation guards
+    if (typeRaw !== 'income' && typeRaw !== 'expense') { showToast('Invalid transaction type', 'error'); return; }
     if (isNaN(amountVal) || amountVal <= 0) { showToast('Amount must be greater than ₱0', 'error'); return; }
     if (!catVal)                            { showToast('Please select a category', 'error'); return; }
     if (!descVal)                           { showToast('Please enter a description', 'error'); return; }
     if (!dateVal)                           { showToast('Please select a date', 'error'); return; }
+    const typeVal: 'income' | 'expense' = typeRaw;
 
     const submitBtn = document.getElementById('btn-save-tx') as HTMLButtonElement;
     submitBtn.disabled = true;
