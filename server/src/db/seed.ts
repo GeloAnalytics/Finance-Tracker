@@ -6,8 +6,6 @@ async function seed() {
   const client = await pool.connect();
   try {
     // Run schema
-    const schemaPath = path.join(__dirname, 'schema.sql');
-    // For ts runtime, adjust path
     const schemaSQL = fs.readFileSync(
       path.resolve(__dirname, '..', '..', 'src', 'db', 'schema.sql'),
       'utf-8'

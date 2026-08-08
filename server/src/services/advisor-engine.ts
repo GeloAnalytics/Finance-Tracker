@@ -86,7 +86,7 @@ async function analyzeUserFinances(): Promise<string> {
     }
 
     const savingsRate = income > 0 ? ((income - expenses) / income * 100) : 0;
-    let response = `This month's income: ₱${income.toLocaleString()}, expenses: ₱${expenses.toLocaleString()}, net: ₱${(income - expenses).toLocaleString()} (${savingsRate.toFixed(1)}% savings rate).\n`;
+    const response = `This month's income: ₱${income.toLocaleString()}, expenses: ₱${expenses.toLocaleString()}, net: ₱${(income - expenses).toLocaleString()} (${savingsRate.toFixed(1)}% savings rate).\n`;
     return response;
   } catch {
     return `Could not fetch finance data.`;
