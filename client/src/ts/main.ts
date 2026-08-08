@@ -5,6 +5,8 @@ import { renderBudget } from './views/budget.js';
 import { renderDebts } from './views/debts.js';
 import { renderSavings } from './views/savings.js';
 import { renderAdvisor } from './views/advisor.js';
+import { renderLoginScreen } from './views/login.js';
+import { checkSession, logout } from './auth.js';
 
 // Setup Mobile Menu Toggle
 const setupMobileMenu = () => {
@@ -45,8 +47,29 @@ registerRoute('debts', renderDebts);
 registerRoute('savings', renderSavings);
 registerRoute('advisor', renderAdvisor);
 
-// Initialize Application
-document.addEventListener('DOMContentLoaded', () => {
-  setupMobileMenu();
-  initRouter();
+const setupLogout = () => {
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    await logout();
+    window.location.reload();
+  });
+};
+
+// Initialize Application — gated behind an authenticated session
+document.addEventListener('DOMContentLoaded', async () => {
+  const app = document.getElementById('app');
+  const appShellHTML = app?.innerHTML || '';
+
+  const startApp = () => {
+    if (app) app.innerHTML = appShellHTML;
+    setupMobileMenu();
+    setupLogout();
+    initRouter();
+  };
+
+  const authenticated = await checkSession();
+  if (authenticated) {
+    startApp();
+  } else {
+    renderLoginScreen(startApp);
+  }
 });

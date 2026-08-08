@@ -1,74 +1,15 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import path from 'path';
-
-import transactionRoutes from './routes/transactions';
-import budgetRoutes from './routes/budgets';
-import debtRoutes from './routes/debts';
-import savingsRoutes from './routes/savings';
-import dashboardRoutes from './routes/dashboard';
-import advisorRoutes from './routes/advisor';
+import { app, dbStatus } from './app';
 import { initializeDatabase } from './db/init';
 
-dotenv.config();
-
-const app = express();
 const PORT = parseInt(process.env.PORT || '3001');
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Request logging
-app.use((req, _res, next) => {
-  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
-  next();
-});
-
-// API Routes
-app.use('/api/transactions', transactionRoutes);
-app.use('/api/budgets', budgetRoutes);
-app.use('/api/debts', debtRoutes);
-app.use('/api/savings', savingsRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/categories', (req, res) => {
-  // Forward to dashboard categories handler
-  import('./controllers/dashboard').then(m => m.getCategories(req, res));
-});
-app.use('/api/advisor', advisorRoutes);
-
-// Health check — includes DB connectivity diagnostic
-let dbStatus: { ok: boolean; error?: string; tables?: boolean; categories?: number } = { ok: false, error: 'Not initialized yet' };
-
-app.get('/api/health', async (_req, res) => {
-  // Quick DB probe
-  let dbProbe = { connected: false, error: '' };
-  try {
-    const pool = (await import('./db/connection')).default;
-    const r = await pool.query('SELECT COUNT(*) as n FROM categories');
-    dbProbe.connected = true;
-    dbStatus.categories = parseInt(r.rows[0].n);
-  } catch (e: any) {
-    dbProbe.error = e.message;
-  }
-  res.json({
-    status: 'ok',
-    version: 'v2-autoinit',
-    timestamp: new Date().toISOString(),
-    name: 'FinanceWise API',
-    database: { ...dbStatus, probe: dbProbe },
-    env: { has_database_url: !!process.env.DATABASE_URL },
-  });
-});
 
 // Start server with DB initialization
 async function start() {
   try {
     await initializeDatabase();
-    dbStatus = { ok: true, tables: true };
+    Object.assign(dbStatus, { ok: true, tables: true, error: undefined });
   } catch (err: any) {
-    dbStatus = { ok: false, error: err.message };
+    Object.assign(dbStatus, { ok: false, error: err.message });
     console.error('⚠️  Database initialization failed:', err.message);
     console.error('   The server will start, but database queries will fail.');
     console.error('   Check your DATABASE_URL environment variable.');
@@ -88,4 +29,3 @@ async function start() {
 start();
 
 export default app;
-
