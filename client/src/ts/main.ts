@@ -7,6 +7,7 @@ import { renderSavings } from './views/savings.js';
 import { renderAdvisor } from './views/advisor.js';
 import { renderLoginScreen } from './views/login.js';
 import { checkSession, logout } from './auth.js';
+import { initCalculator } from './calculator.js';
 
 // Setup Mobile Menu Toggle
 const setupMobileMenu = () => {
@@ -63,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (app) app.innerHTML = appShellHTML;
     setupMobileMenu();
     setupLogout();
+    initCalculator();
     initRouter();
   };
 

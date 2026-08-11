@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { showToast } from '../main.js';
 import { escapeHtml } from '../utils/sanitize.js';
 import type { SavingsGoal } from '../types.js';
+import { monthsToReachGoal, projectedCompletionDate, requiredMonthlyContribution } from '../utils/savings-calc.js';
 
 export const renderSavings = async () => {
   const container = document.getElementById('page-container');
@@ -63,6 +64,39 @@ export const renderSavings = async () => {
     </div>
   `);
 
+  // Append "Goal Calculator" modal to body
+  document.getElementById('goal-calc-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay hidden" id="goal-calc-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title" id="goal-calc-title">Goal Calculator</h3>
+          <button class="modal-close" id="btn-close-goal-calc">&times;</button>
+        </div>
+        <div style="padding: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md);">
+          <div style="display: flex; gap: var(--space-sm);">
+            <button type="button" class="btn btn-ghost btn-sm goal-calc-mode-btn active" data-mode="contribution" style="flex:1;">By monthly amount</button>
+            <button type="button" class="btn btn-ghost btn-sm goal-calc-mode-btn" data-mode="deadline" style="flex:1;">By target date</button>
+          </div>
+
+          <div class="form-group" id="goal-calc-input-contribution">
+            <label class="form-label">Monthly Contribution (₱)</label>
+            <input type="number" id="goal-calc-monthly" class="form-input" step="0.01" min="0.01" placeholder="e.g. 2000">
+          </div>
+
+          <div class="form-group hidden" id="goal-calc-input-deadline">
+            <label class="form-label">Target Date</label>
+            <input type="date" id="goal-calc-date" class="form-input">
+          </div>
+
+          <button type="button" class="btn btn-primary" id="btn-goal-calc-run">Calculate</button>
+
+          <div id="goal-calc-result" class="glass-card hidden" style="text-align: center;"></div>
+        </div>
+      </div>
+    </div>
+  `);
+
   // ── Load Savings Goals ───────────────────────────────────────────────────────
   const loadSavings = async () => {
     try {
@@ -114,6 +148,7 @@ export const renderSavings = async () => {
             </div>
             
             <div style="margin-top: var(--space-md); display: flex; justify-content: flex-end; gap: var(--space-sm);">
+              <button class="btn btn-ghost btn-sm btn-goal-calc" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-current="${current}" data-target="${target}">🧮 Calculate</button>
               <button class="btn btn-ghost btn-sm btn-contribute" data-id="${g.id}">+ Contribute</button>
               <button class="btn btn-ghost btn-sm btn-delete-goal" data-id="${g.id}" style="color: var(--text-muted);">🗑</button>
             </div>
@@ -136,6 +171,17 @@ export const renderSavings = async () => {
           } catch {
             showToast('Failed to add contribution', 'error');
           }
+        });
+      });
+
+      // Attach goal-calculator listeners
+      document.querySelectorAll<HTMLButtonElement>('.btn-goal-calc').forEach(btn => {
+        btn.addEventListener('click', () => {
+          openCalcModal(
+            btn.dataset.name || 'Goal',
+            parseFloat(btn.dataset.current || '0'),
+            parseFloat(btn.dataset.target || '0')
+          );
         });
       });
 
@@ -205,6 +251,72 @@ export const renderSavings = async () => {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Create Goal';
     }
+  });
+
+  // ── Goal Calculator Modal Logic ──────────────────────────────────────────────
+  const calcModal = document.getElementById('goal-calc-modal');
+  const calcTitle = document.getElementById('goal-calc-title') as HTMLElement;
+  const calcResult = document.getElementById('goal-calc-result') as HTMLElement;
+  const calcMonthlyInput = document.getElementById('goal-calc-monthly') as HTMLInputElement;
+  const calcDateInput = document.getElementById('goal-calc-date') as HTMLInputElement;
+  const calcInputContribution = document.getElementById('goal-calc-input-contribution') as HTMLElement;
+  const calcInputDeadline = document.getElementById('goal-calc-input-deadline') as HTMLElement;
+
+  let calcMode: 'contribution' | 'deadline' = 'contribution';
+  let calcGoal: { current: number; target: number } | null = null;
+
+  function openCalcModal(name: string, current: number, target: number) {
+    calcGoal = { current, target };
+    calcTitle.textContent = `Calculate: ${name}`;
+    calcMonthlyInput.value = '';
+    calcDateInput.value = '';
+    calcResult.classList.add('hidden');
+    calcModal?.classList.remove('hidden');
+  }
+  const closeCalcModal = () => calcModal?.classList.add('hidden');
+
+  document.getElementById('btn-close-goal-calc')?.addEventListener('click', closeCalcModal);
+  calcModal?.addEventListener('click', (e) => { if (e.target === calcModal) closeCalcModal(); });
+
+  calcModal?.querySelectorAll<HTMLButtonElement>('.goal-calc-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      calcMode = btn.dataset.mode as 'contribution' | 'deadline';
+      calcModal?.querySelectorAll('.goal-calc-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+      calcInputContribution.classList.toggle('hidden', calcMode !== 'contribution');
+      calcInputDeadline.classList.toggle('hidden', calcMode !== 'deadline');
+      calcResult.classList.add('hidden');
+    });
+  });
+
+  document.getElementById('btn-goal-calc-run')?.addEventListener('click', () => {
+    if (!calcGoal) return;
+    const { current, target } = calcGoal;
+
+    if (calcMode === 'contribution') {
+      const monthly = parseFloat(calcMonthlyInput.value);
+      if (isNaN(monthly) || monthly <= 0) { showToast('Enter a valid monthly amount', 'error'); return; }
+      const months = monthsToReachGoal(current, target, monthly);
+      if (months === 0) {
+        calcResult.innerHTML = `<strong>Goal already reached! 🎉</strong>`;
+      } else {
+        const date = projectedCompletionDate(current, target, monthly);
+        const dateLabel = date ? date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '';
+        calcResult.innerHTML = `Saving <strong>₱${monthly.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>/month, you'll reach this goal in <strong>${months} month${months === 1 ? '' : 's'}</strong> — around <strong>${dateLabel}</strong>.`;
+      }
+    } else {
+      const dateVal = calcDateInput.value;
+      if (!dateVal) { showToast('Select a target date', 'error'); return; }
+      const deadline = new Date(dateVal);
+      const monthly = requiredMonthlyContribution(current, target, deadline);
+      if (monthly === 0) {
+        calcResult.innerHTML = `<strong>Goal already reached! 🎉</strong>`;
+      } else if (monthly === null) {
+        calcResult.innerHTML = `<strong style="color: var(--text-secondary);">That date has already passed — pick a future date.</strong>`;
+      } else {
+        calcResult.innerHTML = `To reach this goal by <strong>${deadline.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</strong>, save about <strong>₱${monthly.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>/month.`;
+      }
+    }
+    calcResult.classList.remove('hidden');
   });
 
   loadSavings();
