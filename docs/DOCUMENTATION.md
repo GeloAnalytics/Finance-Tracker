@@ -73,6 +73,7 @@ server/                  Express API
 - **Categories** — Pre-seeded income/expense/both categories, each optionally tagged `needs`/`wants`/`savings`.
 - **AI Advisor** — Gemini chat grounded in the user's live financial context (income, expenses, debts, savings, budget status); history persisted and rendered as sanitized Markdown.
 - **Login gate** — Single shared-password screen before the SPA renders.
+- **Demo Mode** — A landing page (`client/src/ts/views/landing.ts`) offers a "Try Live Demo" path that never touches the real backend. `client/src/ts/demo/` swaps every `api.ts` call for an in-browser mock (sessionStorage-backed dummy data + a keyword-matched offline advisor, `demo/financial-literacy.ts`), so visitors can use every feature with realistic sample data without logging in, and without ever reaching the real database, JWT auth, or Gemini API key. See §11.
 
 ---
 
@@ -226,3 +227,20 @@ Defined in `render.yaml` — two Render services, no Dockerfile:
 - **`financewise-client`** (static site, `rootDir: client`) — build: `npm install && npm run build`, publishes `./dist`; requires `VITE_API_URL` pointing at the deployed server.
 
 Production database is Supabase-hosted PostgreSQL.
+
+---
+
+## 11. Demo Mode
+
+Public portfolio visitors land on a marketing page, not the login screen. Anyone unauthenticated sees `renderLandingScreen()` (`client/src/ts/views/landing.ts`) with two choices: **Owner Login** (the real, unchanged password flow) or **Try Live Demo**.
+
+**Design goal:** the demo must be completely safe to expose publicly — zero risk to the real database, JWT secret, `AUTH_PASSWORD_HASH`, or `GEMINI_API_KEY`. It achieves this by never making a single network request to the server.
+
+- `client/src/ts/demo/demo-state.ts` — `isDemoMode()`/`enterDemoMode()`/`exitDemoMode()`, backed by a `sessionStorage` flag (`fw_demo_mode`). A fresh tab always starts clean; a reload mid-demo keeps edits.
+- `client/src/ts/demo/mock-data.ts` — generates realistic ₱-denominated dummy data (6 months of transactions, budgets, 3 debts, 4 savings goals) relative to the visitor's current date, so the demo never looks stale.
+- `client/src/ts/demo/mock-store.ts` — the in-browser "database": reads/writes the generated data to `sessionStorage` (key `fw_demo_data`).
+- `client/src/ts/demo/mock-api.ts` — a drop-in reimplementation of every method on `api` (`client/src/ts/api.ts`), replicating each server controller's logic (health score formula, 50/30/20 budget grouping, snowball/avalanche payoff simulation, etc.) against the mock store instead of Postgres.
+- `client/src/ts/demo/financial-literacy.ts` — a keyword-matched knowledge base standing in for the Gemini-backed AI Advisor, so the demo needs no API key and costs nothing to run. Falls back to a data-aware summary (referencing the visitor's own mock debts/savings) when no keyword matches.
+- `client/src/ts/api.ts` exports `api` as a `Proxy` that re-checks `isDemoMode()` on every property access (not once at module load) and dispatches to `mockApi` or the real `liveApi` accordingly — every view (`dashboard.ts`, `transactions.ts`, etc.) is unmodified and unaware which one it's talking to.
+
+Exiting demo mode (`Exit Demo` in the sidebar or the persistent demo banner) clears both sessionStorage keys and reloads back to the landing page. Nothing about the real login, real API, or real database was touched to build this — `server/` has no demo-related code at all.

@@ -22,6 +22,8 @@ import type {
   UpdateSavingsGoalDTO,
   ChatMessage,
 } from './types';
+import { isDemoMode } from './demo/demo-state.js';
+import { mockApi } from './demo/mock-api.js';
 
 const BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -43,7 +45,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export const api = {
+const liveApi = {
   // Dashboard
   getDashboard: () => request<DashboardData>('/dashboard/summary'),
   getCategories: (type?: string) => request<Category[]>(`/categories${type ? `?type=${type}` : ''}`),
@@ -93,3 +95,14 @@ export const api = {
   getChatHistory: () => request<ChatMessage[]>('/advisor/history'),
   clearChatHistory: () => request<{ message: string }>('/advisor/history', { method: 'DELETE' }),
 };
+
+// Demo mode never touches the real backend — swap in the fully client-side
+// mock implementation so every view works identically without a login.
+// isDemoMode() is checked per-call (via this Proxy) rather than once at
+// module load, since the flag flips at runtime when "Try Live Demo" is
+// clicked — long after this module has already been imported and evaluated.
+export const api = new Proxy({} as typeof liveApi, {
+  get(_target, prop: keyof typeof liveApi) {
+    return isDemoMode() ? mockApi[prop] : liveApi[prop];
+  },
+});
