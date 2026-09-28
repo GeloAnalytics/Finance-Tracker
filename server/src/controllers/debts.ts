@@ -5,12 +5,14 @@ import { DebtPayoffPlan } from '../types';
 // GET /api/debts
 export async function getDebts(req: Request, res: Response) {
   try {
+    const userId = req.user?.id;
     const { active } = req.query;
-    let query = 'SELECT * FROM debts';
-    const params: any[] = [];
+
+    let query = userId ? 'SELECT * FROM debts WHERE (user_id = $1 OR user_id IS NULL)' : 'SELECT * FROM debts WHERE 1=1';
+    const params: any[] = userId ? [userId] : [];
 
     if (active !== undefined) {
-      query += ' WHERE is_active = $1';
+      query += ` AND is_active = $${params.length + 1}`;
       params.push(active === 'true');
     }
 
@@ -35,12 +37,13 @@ export async function getDebts(req: Request, res: Response) {
 // POST /api/debts
 export async function createDebt(req: Request, res: Response) {
   try {
+    const userId = req.user?.id || null;
     const { name, total_amount, current_balance, interest_rate, minimum_payment, due_date } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO debts (name, total_amount, current_balance, interest_rate, minimum_payment, due_date)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [name, total_amount, current_balance, interest_rate, minimum_payment, due_date ?? null]
+      `INSERT INTO debts (user_id, name, total_amount, current_balance, interest_rate, minimum_payment, due_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [userId, name, total_amount, current_balance, interest_rate, minimum_payment, due_date ?? null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -53,8 +56,13 @@ export async function createDebt(req: Request, res: Response) {
 // PUT /api/debts/:id
 export async function updateDebt(req: Request, res: Response) {
   try {
+    const userId = req.user?.id;
     const { id } = req.params;
     const { name, total_amount, current_balance, interest_rate, minimum_payment, due_date, is_active } = req.body;
+
+    const userClause = userId ? 'AND (user_id = $8 OR user_id IS NULL)' : '';
+    const params = [name, total_amount, current_balance, interest_rate, minimum_payment, due_date, is_active, id];
+    if (userId) params.push(userId as any);
 
     const result = await pool.query(
       `UPDATE debts SET
@@ -66,8 +74,8 @@ export async function updateDebt(req: Request, res: Response) {
         due_date = COALESCE($6, due_date),
         is_active = COALESCE($7, is_active),
         updated_at = NOW()
-       WHERE id = $8 RETURNING *`,
-      [name, total_amount, current_balance, interest_rate, minimum_payment, due_date, is_active, id]
+       WHERE id = $8 ${userClause} RETURNING *`,
+      params
     );
 
     if (result.rows.length === 0) {
@@ -84,8 +92,14 @@ export async function updateDebt(req: Request, res: Response) {
 // DELETE /api/debts/:id
 export async function deleteDebt(req: Request, res: Response) {
   try {
+    const userId = req.user?.id;
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM debts WHERE id = $1 RETURNING id', [id]);
+    const query = userId
+      ? 'DELETE FROM debts WHERE id = $1 AND (user_id = $2 OR user_id IS NULL) RETURNING id'
+      : 'DELETE FROM debts WHERE id = $1 RETURNING id';
+    const params = userId ? [id, userId] : [id];
+
+    const result = await pool.query(query, params);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Debt not found' });
     }
@@ -99,12 +113,16 @@ export async function deleteDebt(req: Request, res: Response) {
 // GET /api/debts/payoff?method=snowball|avalanche&extra_payment=
 export async function getPayoffPlan(req: Request, res: Response) {
   try {
+    const userId = req.user?.id;
     const method = (req.query.method as string) || 'snowball';
     const extraPayment = parseFloat(req.query.extra_payment as string) || 0;
 
-    const debtsResult = await pool.query(
-      'SELECT * FROM debts WHERE is_active = true AND current_balance > 0 ORDER BY id'
-    );
+    const query = userId
+      ? 'SELECT * FROM debts WHERE (user_id = $1 OR user_id IS NULL) AND is_active = true AND current_balance > 0 ORDER BY id'
+      : 'SELECT * FROM debts WHERE is_active = true AND current_balance > 0 ORDER BY id';
+    const params = userId ? [userId] : [];
+
+    const debtsResult = await pool.query(query, params);
 
     if (debtsResult.rows.length === 0) {
       return res.json({ method, total_months: 0, total_interest: 0, total_paid: 0, order: [], monthly_schedule: [] });

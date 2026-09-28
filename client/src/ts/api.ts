@@ -11,6 +11,7 @@ import type {
   BudgetsResponse,
   BudgetSuggestion,
   CreateBudgetDTO,
+  BudgetAllocation,
   DebtsResponse,
   Debt,
   CreateDebtDTO,
@@ -21,6 +22,10 @@ import type {
   CreateSavingsGoalDTO,
   UpdateSavingsGoalDTO,
   ChatMessage,
+  BillsResponse,
+  BillItem,
+  CreateBillDTO,
+  UpdateBillDTO,
 } from './types';
 import { isDemoMode } from './demo/demo-state.js';
 import { mockApi } from './demo/mock-api.js';
@@ -94,6 +99,22 @@ const liveApi = {
   sendMessage: (message: string) => request<ChatMessage>('/advisor/chat', { method: 'POST', body: JSON.stringify({ message }) }),
   getChatHistory: () => request<ChatMessage[]>('/advisor/history'),
   clearChatHistory: () => request<{ message: string }>('/advisor/history', { method: 'DELETE' }),
+
+  // Budget Allocations
+  getBudgetAllocation: () => request<{ allocations: BudgetAllocation[] }>('/budgets/allocation'),
+  updateBudgetAllocation: (allocations: BudgetAllocation[]) =>
+    request<{ ok: boolean; allocations: BudgetAllocation[] }>('/budgets/allocation', { method: 'PUT', body: JSON.stringify({ allocations }) }),
+
+  // Bills & To-Buy
+  getBills: (params?: { item_type?: string; status?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : '';
+    return request<BillsResponse>(`/bills${qs}`);
+  },
+  createBill: (data: CreateBillDTO) => request<BillItem>('/bills', { method: 'POST', body: JSON.stringify(data) }),
+  updateBill: (id: number, data: UpdateBillDTO) => request<BillItem>(`/bills/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteBill: (id: number) => request<{ message: string; id: number }>(`/bills/${id}`, { method: 'DELETE' }),
+  payOrBuyItem: (id: number, createTransaction?: boolean) =>
+    request<{ item: BillItem; transaction: any }>(`/bills/${id}/pay-or-buy`, { method: 'POST', body: JSON.stringify({ create_transaction: createTransaction ?? true }) }),
 };
 
 // Demo mode never touches the real backend — swap in the fully client-side

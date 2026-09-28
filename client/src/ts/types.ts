@@ -5,7 +5,7 @@ export interface Category {
   name: string;
   icon: string;
   type: 'income' | 'expense' | 'both';
-  budget_group: 'needs' | 'wants' | 'savings' | null;
+  budget_group: 'needs' | 'wants' | 'tithes' | 'savings' | 'debt_payments' | null;
 }
 
 export interface Transaction {
@@ -95,6 +95,13 @@ export interface SavingsResponse {
   overall_progress: number;
 }
 
+export type BudgetGroupKey = 'needs' | 'wants' | 'tithes' | 'savings' | 'debt_payments';
+
+export interface BudgetAllocation {
+  group_key: BudgetGroupKey;
+  percentage: number;
+}
+
 export interface BudgetGroupSummary {
   budget: number;
   spent: number;
@@ -106,22 +113,49 @@ export interface BudgetsResponse {
   month: number;
   year: number;
   total_budget: number;
-  groups: {
-    needs: BudgetGroupSummary;
-    wants: BudgetGroupSummary;
-    savings: BudgetGroupSummary;
-  };
+  allocations: BudgetAllocation[];
+  groups: Record<string, BudgetGroupSummary>;
 }
 
 export interface BudgetSuggestion {
-  suggestion: {
-    total_income: number;
-    needs: { amount: number; percentage: number; description: string };
-    wants: { amount: number; percentage: number; description: string };
-    savings: { amount: number; percentage: number; description: string };
-  };
+  total_income: number;
+  allocations: BudgetAllocation[];
+  suggestion: Record<string, { amount: number; percentage: number; description: string }>;
   categories: Category[];
 }
+
+// ── Bills & To-Buy ──────────────────────────────────────────────────────────
+
+export interface BillItem {
+  id: number;
+  item_type: 'bill' | 'to_buy';
+  name: string;
+  amount: number;
+  due_date: string | null;
+  category_id: number | null;
+  category_name?: string;
+  category_icon?: string;
+  status: 'pending' | 'completed';
+  notes: string | null;
+  created_at: string;
+}
+
+export interface BillsResponse {
+  data: BillItem[];
+  total_pending_bills: number;
+  total_pending_to_buy: number;
+}
+
+export interface CreateBillDTO {
+  item_type: 'bill' | 'to_buy';
+  name: string;
+  amount: number;
+  due_date?: string | null;
+  category_id?: number | null;
+  notes?: string;
+}
+
+export type UpdateBillDTO = Partial<Omit<CreateBillDTO, 'item_type'>> & { status?: 'pending' | 'completed' };
 
 export interface PayoffPlan {
   method: 'snowball' | 'avalanche';

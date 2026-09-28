@@ -5,9 +5,10 @@ import { renderBudget } from './views/budget.js';
 import { renderDebts } from './views/debts.js';
 import { renderSavings } from './views/savings.js';
 import { renderAdvisor } from './views/advisor.js';
+import { renderBills } from './views/bills.js';
 import { renderLoginScreen } from './views/login.js';
 import { renderLandingScreen } from './views/landing.js';
-import { checkSession, logout } from './auth.js';
+import { checkSession, logout, User } from './auth.js';
 import { initCalculator } from './calculator.js';
 import { isDemoMode, enterDemoMode, exitDemoMode } from './demo/demo-state.js';
 
@@ -49,8 +50,9 @@ registerRoute('budget', renderBudget);
 registerRoute('debts', renderDebts);
 registerRoute('savings', renderSavings);
 registerRoute('advisor', renderAdvisor);
+registerRoute('bills', renderBills);
 
-const setupLogout = (demo: boolean) => {
+const setupLogout = (demo: boolean, user?: User) => {
   const btn = document.getElementById('btn-logout');
   if (btn) btn.textContent = demo ? 'Exit Demo' : 'Log out';
   btn?.addEventListener('click', async () => {
@@ -61,6 +63,15 @@ const setupLogout = (demo: boolean) => {
     }
     window.location.reload();
   });
+
+  const userBadge = document.getElementById('sidebar-user-badge');
+  if (userBadge) {
+    if (demo) {
+      userBadge.innerHTML = '👤 <strong>Demo Mode</strong>';
+    } else if (user) {
+      userBadge.innerHTML = `👤 <strong>${user.username}</strong><br/><span style="font-size: 0.75rem; color: var(--text-muted);">${user.email}</span>`;
+    }
+  }
 };
 
 // Injects a persistent "you're in the demo" banner into the app shell. Placed
@@ -86,10 +97,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const app = document.getElementById('app');
   const appShellHTML = app?.innerHTML || '';
 
-  const startApp = (demo: boolean) => {
+  const startApp = (demo: boolean, user?: User) => {
     if (app) app.innerHTML = appShellHTML;
     setupMobileMenu();
-    setupLogout(demo);
+    setupLogout(demo, user);
     initCalculator();
     initRouter();
     if (demo) injectDemoBanner();
@@ -101,7 +112,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         enterDemoMode();
         startApp(true);
       },
-      onLogin: () => renderLoginScreen(() => startApp(false)),
+      onLogin: (tab) => renderLoginScreen(() => {
+        checkSession().then(s => startApp(false, s.user));
+      }, tab),
     });
   };
 
@@ -110,9 +123,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  const authenticated = await checkSession();
-  if (authenticated) {
-    startApp(false);
+  const session = await checkSession();
+  if (session.authenticated) {
+    startApp(false, session.user);
   } else {
     showLanding();
   }

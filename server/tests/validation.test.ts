@@ -55,7 +55,8 @@ describe('input validation', () => {
 
     expect(res.status).toBe(201);
     const [, insertParams] = queryMock.mock.calls[0];
-    expect(insertParams[1]).toBe(10.5);
-    expect(typeof insertParams[1]).toBe('number');
+    const amountParam = insertParams.find((p: any) => typeof p === 'number' && p === 10.5);
+    expect(amountParam).toBe(10.5);
+    expect(typeof amountParam).toBe('number');
   });
 });

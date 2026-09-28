@@ -28,6 +28,11 @@ import type {
   CreateSavingsGoalDTO,
   UpdateSavingsGoalDTO,
   ChatMessage,
+  BudgetAllocation,
+  BillsResponse,
+  BillItem,
+  CreateBillDTO,
+  UpdateBillDTO,
 } from '../types.js';
 
 const CHART_COLORS = ['#7c5cfc', '#34d399', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316', '#6366f1', '#a855f7', '#06b6d4'];
@@ -277,27 +282,22 @@ function getBudgets(month?: number, year?: number): Promise<BudgetsResponse> {
       .map((b) => toBudget(b, spentFor(b.category_id, m, y)));
 
     const totalBudget = rows.reduce((sum, b) => sum + b.amount, 0);
-    const groups = { needs: 0, wants: 0, savings: 0 };
-    const groupSpent = { needs: 0, wants: 0, savings: 0 };
+    const allocations: BudgetAllocation[] = (getDemoData() as any).allocations ?? [
+      { group_key: 'needs', percentage: 50 },
+      { group_key: 'wants', percentage: 30 },
+      { group_key: 'savings', percentage: 20 },
+    ];
+    const groups: Record<string, { budget: number; spent: number; target_pct: number }> = {};
+    allocations.forEach(a => { groups[a.group_key] = { budget: 0, spent: 0, target_pct: a.percentage }; });
     rows.forEach((b) => {
-      const group = b.budget_group as keyof typeof groups;
-      if (group && groups[group] !== undefined) {
-        groups[group] += b.amount;
-        groupSpent[group] += b.spent ?? 0;
+      const group = b.budget_group as string | null;
+      if (group && groups[group]) {
+        groups[group].budget += b.amount;
+        groups[group].spent += b.spent ?? 0;
       }
     });
 
-    return {
-      data: rows,
-      month: m,
-      year: y,
-      total_budget: totalBudget,
-      groups: {
-        needs: { budget: groups.needs, spent: groupSpent.needs, target_pct: 50 },
-        wants: { budget: groups.wants, spent: groupSpent.wants, target_pct: 30 },
-        savings: { budget: groups.savings, spent: groupSpent.savings, target_pct: 20 },
-      },
-    };
+    return { data: rows, month: m, year: y, total_budget: totalBudget, allocations, groups };
   });
 }
 
@@ -329,16 +329,26 @@ function deleteBudget(id: number): Promise<{ message: string; id: number }> {
 
 function suggestBudgets(income: number): Promise<BudgetSuggestion> {
   return delay().then(() => {
-    const suggestion = {
-      total_income: income,
-      needs: { amount: income * 0.5, percentage: 50, description: 'Essential expenses: rent, food, utilities, transport' },
-      wants: { amount: income * 0.3, percentage: 30, description: 'Non-essentials: dining out, entertainment, shopping' },
-      savings: { amount: income * 0.2, percentage: 20, description: 'Savings, investments, debt payoff' },
+    const allocations: BudgetAllocation[] = (getDemoData() as any).allocations ?? [
+      { group_key: 'needs', percentage: 50 },
+      { group_key: 'wants', percentage: 30 },
+      { group_key: 'savings', percentage: 20 },
+    ];
+    const suggestion: Record<string, { amount: number; percentage: number; description: string }> = {};
+    const descs: Record<string, string> = {
+      needs: 'Essential expenses: rent, food, utilities, transport',
+      wants: 'Non-essentials: dining out, entertainment, shopping',
+      tithes: 'Tithes and charitable giving',
+      savings: 'Savings, investments',
+      debt_payments: 'Debt payoff payments',
     };
+    allocations.forEach(a => {
+      suggestion[a.group_key] = { amount: income * a.percentage / 100, percentage: a.percentage, description: descs[a.group_key] ?? '' };
+    });
     const categories = getDemoData().categories
       .filter((c) => c.type === 'expense' && c.budget_group !== null)
       .sort((a, b) => (a.budget_group ?? '').localeCompare(b.budget_group ?? '') || a.name.localeCompare(b.name));
-    return { suggestion, categories };
+    return { total_income: income, allocations, suggestion, categories };
   });
 }
 
@@ -623,4 +633,72 @@ export const mockApi = {
   sendMessage,
   getChatHistory,
   clearChatHistory,
+
+  // Budget allocations (demo stubs)
+  getBudgetAllocation: async (): Promise<{ allocations: BudgetAllocation[] }> => {
+    await delay();
+    const store = getDemoData() as any;
+    const allocations: BudgetAllocation[] = store.allocations ?? [
+      { group_key: 'needs', percentage: 50 },
+      { group_key: 'wants', percentage: 30 },
+      { group_key: 'savings', percentage: 20 },
+    ];
+    return { allocations };
+  },
+  updateBudgetAllocation: async (allocations: BudgetAllocation[]): Promise<{ ok: boolean; allocations: BudgetAllocation[] }> => {
+    await delay();
+    const store = getDemoData() as any;
+    store.allocations = allocations;
+    saveDemoData();
+    return { ok: true, allocations };
+  },
+
+  // Bills & To-Buy (demo stubs)
+  getBills: async (_params?: { item_type?: string; status?: string }): Promise<BillsResponse> => {
+    await delay();
+    const store = getDemoData() as any;
+    const data: BillItem[] = store.bills ?? [];
+    const pending = data.filter((i: BillItem) => i.status === 'pending');
+    return {
+      data,
+      total_pending_bills: pending.filter((i: BillItem) => i.item_type === 'bill').reduce((s: number, i: BillItem) => s + i.amount, 0),
+      total_pending_to_buy: pending.filter((i: BillItem) => i.item_type === 'to_buy').reduce((s: number, i: BillItem) => s + i.amount, 0),
+    };
+  },
+  createBill: async (data: CreateBillDTO): Promise<BillItem> => {
+    await delay();
+    const store = getDemoData() as any;
+    if (!store.bills) store.bills = [];
+    const item: BillItem = { ...data, id: Date.now(), status: 'pending', created_at: new Date().toISOString(), notes: data.notes ?? null, due_date: data.due_date ?? null, category_id: data.category_id ?? null };
+    store.bills.push(item);
+    saveDemoData();
+    return item;
+  },
+  updateBill: async (id: number, data: UpdateBillDTO): Promise<BillItem> => {
+    await delay();
+    const store = getDemoData() as any;
+    store.bills = store.bills ?? [];
+    const idx = store.bills.findIndex((i: BillItem) => i.id === id);
+    if (idx === -1) throw new Error('Not found');
+    store.bills[idx] = { ...store.bills[idx], ...data };
+    saveDemoData();
+    return store.bills[idx];
+  },
+  deleteBill: async (id: number): Promise<{ message: string; id: number }> => {
+    await delay();
+    const store = getDemoData() as any;
+    store.bills = (store.bills ?? []).filter((i: BillItem) => i.id !== id);
+    saveDemoData();
+    return { message: 'Deleted', id };
+  },
+  payOrBuyItem: async (id: number, _createTransaction?: boolean): Promise<{ item: BillItem; transaction: any }> => {
+    await delay();
+    const store = getDemoData() as any;
+    store.bills = store.bills ?? [];
+    const idx = store.bills.findIndex((i: BillItem) => i.id === id);
+    if (idx === -1) throw new Error('Not found');
+    store.bills[idx].status = 'completed';
+    saveDemoData();
+    return { item: store.bills[idx], transaction: null };
+  },
 };

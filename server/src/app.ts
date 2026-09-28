@@ -12,6 +12,8 @@ import dashboardRoutes from './routes/dashboard';
 import advisorRoutes from './routes/advisor';
 import { requireAuth } from './middleware/auth';
 
+import billRoutes from './routes/bills';
+
 dotenv.config();
 
 export const app = express();
@@ -52,6 +54,7 @@ app.use('/api/transactions', requireAuth, transactionRoutes);
 app.use('/api/budgets', requireAuth, budgetRoutes);
 app.use('/api/debts', requireAuth, debtRoutes);
 app.use('/api/savings', requireAuth, savingsRoutes);
+app.use('/api/bills', requireAuth, billRoutes);
 app.use('/api/dashboard', requireAuth, dashboardRoutes);
 app.use('/api/categories', requireAuth, (req, res) => {
   // Forward to dashboard categories handler

@@ -4,13 +4,16 @@ import pool from '../db/connection';
 const MAX_LIMIT = 200;
 const DEFAULT_LIMIT = 50;
 
-// Builds the shared WHERE clause + params for both the page query and the
-// count query, so the two can never drift out of sync with each other.
-function buildTransactionFilters(query: Request['query']) {
+function buildTransactionFilters(query: Request['query'], userId?: number) {
   const { type, category_id, from, to, search } = query;
   let clause = ' WHERE 1=1';
   const params: any[] = [];
   let paramIdx = 1;
+
+  if (userId) {
+    clause += ` AND (t.user_id = $${paramIdx++} OR t.user_id IS NULL)`;
+    params.push(userId);
+  }
 
   if (type) {
     clause += ` AND t.type = $${paramIdx++}`;
@@ -48,7 +51,8 @@ function parsePagination(query: Request['query']) {
 // GET /api/transactions?type=&category_id=&from=&to=&limit=&offset=
 export async function getTransactions(req: Request, res: Response) {
   try {
-    const { clause, params, nextParamIdx } = buildTransactionFilters(req.query);
+    const userId = req.user?.id;
+    const { clause, params, nextParamIdx } = buildTransactionFilters(req.query, userId);
     const { limit, offset } = parsePagination(req.query);
 
     const query = `
@@ -79,12 +83,13 @@ export async function getTransactions(req: Request, res: Response) {
 // POST /api/transactions
 export async function createTransaction(req: Request, res: Response) {
   try {
+    const userId = req.user?.id || null;
     const { type, amount, category_id, description, date } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO transactions (type, amount, category_id, description, date) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [type, amount, category_id || null, description || null, date || new Date().toISOString().split('T')[0]]
+      `INSERT INTO transactions (user_id, type, amount, category_id, description, date) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [userId, type, amount, category_id || null, description || null, date || new Date().toISOString().split('T')[0]]
     );
 
     // Fetch with category info
@@ -105,8 +110,13 @@ export async function createTransaction(req: Request, res: Response) {
 // PUT /api/transactions/:id
 export async function updateTransaction(req: Request, res: Response) {
   try {
+    const userId = req.user?.id;
     const { id } = req.params;
     const { type, amount, category_id, description, date } = req.body;
+
+    const userClause = userId ? 'AND (user_id = $7 OR user_id IS NULL)' : '';
+    const params = [type, amount, category_id, description, date, id];
+    if (userId) params.push(userId as any);
 
     const result = await pool.query(
       `UPDATE transactions SET 
@@ -116,8 +126,8 @@ export async function updateTransaction(req: Request, res: Response) {
         description = COALESCE($4, description),
         date = COALESCE($5, date),
         updated_at = NOW()
-       WHERE id = $6 RETURNING *`,
-      [type, amount, category_id, description, date, id]
+       WHERE id = $6 ${userClause} RETURNING *`,
+      params
     );
 
     if (result.rows.length === 0) {
@@ -141,8 +151,14 @@ export async function updateTransaction(req: Request, res: Response) {
 // DELETE /api/transactions/:id
 export async function deleteTransaction(req: Request, res: Response) {
   try {
+    const userId = req.user?.id;
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM transactions WHERE id = $1 RETURNING id', [id]);
+    const query = userId
+      ? 'DELETE FROM transactions WHERE id = $1 AND (user_id = $2 OR user_id IS NULL) RETURNING id'
+      : 'DELETE FROM transactions WHERE id = $1 RETURNING id';
+    const params = userId ? [id, userId] : [id];
+
+    const result = await pool.query(query, params);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Transaction not found' });
     }

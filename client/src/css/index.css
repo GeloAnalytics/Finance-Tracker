@@ -900,3 +900,132 @@ ul li, ol li {
   border: 1px solid var(--border-light);
   font-size: var(--font-sm);
 }
+
+/* --- Auth / Login / Register Screen --- */
+.login-screen {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-deep);
+  padding: var(--space-lg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.login-logo {
+  justify-content: center;
+  margin-bottom: var(--space-xs);
+}
+
+.auth-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-sm);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.auth-tab:hover {
+  color: var(--text-primary);
+}
+
+.auth-tab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.login-subtitle {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: var(--space-xs);
+}
+
+.login-error {
+  color: #ff6b6b;
+  font-size: var(--font-xs);
+  text-align: center;
+  background: rgba(255, 107, 107, 0.1);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+.auth-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sidebar-user-badge {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-sm);
+  word-break: break-all;
+}/* --- Bill Items --- */
+.bill-item {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.bill-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+.bill-item.completed {
+  filter: grayscale(0.4);
+}
+
+.btn-check {
+  transition: background 0.2s, color 0.2s;
+}
+.btn-check:hover {
+  background: var(--accent-primary) !important;
+  color: #fff !important;
+}
+
+/* --- Budget item --- */
+.budget-item {
+  padding: var(--space-sm) 0;
+}
+
+/* --- Allocation modal chips --- */
+.alloc-chip:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+

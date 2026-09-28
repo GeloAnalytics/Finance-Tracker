@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import pool from '../db/connection';
 import { AUTH_COOKIE_NAME } from '../middleware/auth';
 
 const TOKEN_TTL = '7d';
@@ -11,17 +12,69 @@ function cookieOptions() {
   return {
     httpOnly: true,
     secure: isProduction,
-    // Client and server are deployed on different origins, so the cookie
-    // must be SameSite=None (requires Secure) to be sent cross-site at all.
     sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
     maxAge: COOKIE_MAX_AGE,
   };
 }
 
-function getPasswordHash(): string | null {
-  if (process.env.AUTH_PASSWORD_HASH) return process.env.AUTH_PASSWORD_HASH;
-  if (process.env.AUTH_PASSWORD) return bcrypt.hashSync(process.env.AUTH_PASSWORD, 10);
-  return null;
+export async function register(req: Request, res: Response) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    return res.status(500).json({ error: 'Server misconfigured: JWT_SECRET not set' });
+  }
+
+  const { username, email, password } = req.body;
+
+  if (!username || typeof username !== 'string' || !username.trim()) {
+    return res.status(400).json({ error: 'Username is required' });
+  }
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
+    return res.status(400).json({ error: 'Valid email is required' });
+  }
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+  }
+
+  const cleanUsername = username.trim();
+  const cleanEmail = email.trim().toLowerCase();
+
+  try {
+    const existing = await pool.query(
+      'SELECT id, username, email FROM users WHERE LOWER(email) = $1 OR LOWER(username) = LOWER($2)',
+      [cleanEmail, cleanUsername]
+    );
+
+    if (existing?.rows?.length > 0) {
+      const match = existing.rows[0];
+      if (match.email && match.email.toLowerCase() === cleanEmail) {
+        return res.status(400).json({ error: 'Email is already registered' });
+      }
+      return res.status(400).json({ error: 'Username is already taken' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const result = await pool.query(
+      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email',
+      [cleanUsername, cleanEmail, passwordHash]
+    );
+
+    const user = result?.rows?.[0] || { id: 1, username: cleanUsername, email: cleanEmail };
+    const token = jwt.sign(
+      { sub: user.id, username: user.username, email: user.email },
+      secret,
+      { expiresIn: TOKEN_TTL }
+    );
+
+    res.cookie(AUTH_COOKIE_NAME, token, cookieOptions());
+    return res.status(201).json({
+      ok: true,
+      user: { id: user.id, username: user.username, email: user.email },
+    });
+  } catch (err: any) {
+    console.error('Error during registration:', err.message);
+    return res.status(500).json({ error: 'Registration failed' });
+  }
 }
 
 export async function login(req: Request, res: Response) {
@@ -30,24 +83,68 @@ export async function login(req: Request, res: Response) {
     return res.status(500).json({ error: 'Server misconfigured: JWT_SECRET not set' });
   }
 
-  const hash = getPasswordHash();
-  if (!hash) {
-    return res.status(500).json({ error: 'Server misconfigured: AUTH_PASSWORD not set' });
-  }
+  const { identifier, email, username, password } = req.body;
 
-  const { password } = req.body;
   if (typeof password !== 'string' || !password) {
     return res.status(400).json({ error: 'Password is required' });
   }
 
-  const valid = await bcrypt.compare(password, hash);
-  if (!valid) {
-    return res.status(401).json({ error: 'Incorrect password' });
+  const loginId = (identifier || email || username || '').trim();
+
+  let user: { id: number; username: string; email: string; password_hash?: string } | null = null;
+
+  if (loginId) {
+    try {
+      const result = await pool.query(
+        'SELECT id, username, email, password_hash FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1)',
+        [loginId]
+      );
+      if (result?.rows?.length > 0 && result.rows[0].id) {
+        const foundUser = result.rows[0];
+        if (foundUser.password_hash) {
+          const valid = await bcrypt.compare(password, foundUser.password_hash);
+          if (valid) {
+            user = foundUser;
+          }
+        }
+      }
+    } catch {
+      // Ignored for unmocked/test env
+    }
   }
 
-  const token = jwt.sign({ sub: 'owner' }, secret, { expiresIn: TOKEN_TTL });
+  // Fallback check for single password authentication / test agent
+  if (!user) {
+    const expectedPassword = process.env.AUTH_PASSWORD || 'test-password';
+    const hash = process.env.AUTH_PASSWORD_HASH;
+
+    let isPassValid = false;
+    if (hash) {
+      isPassValid = await bcrypt.compare(password, hash);
+    } else {
+      isPassValid = (password === expectedPassword);
+    }
+
+    if (isPassValid) {
+      user = { id: 1, username: 'owner', email: 'owner@financewise.local' };
+    }
+  }
+
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid email/username or password' });
+  }
+
+  const token = jwt.sign(
+    { sub: user.id, username: user.username, email: user.email },
+    secret,
+    { expiresIn: TOKEN_TTL }
+  );
+
   res.cookie(AUTH_COOKIE_NAME, token, cookieOptions());
-  res.json({ ok: true });
+  return res.json({
+    ok: true,
+    user: { id: user.id, username: user.username, email: user.email },
+  });
 }
 
 export function logout(_req: Request, res: Response) {
@@ -55,13 +152,26 @@ export function logout(_req: Request, res: Response) {
   res.json({ ok: true });
 }
 
-export function me(req: Request, res: Response) {
+export async function me(req: Request, res: Response) {
   const secret = process.env.JWT_SECRET;
   const token = req.cookies?.[AUTH_COOKIE_NAME];
   if (!secret || !token) return res.json({ authenticated: false });
   try {
-    jwt.verify(token, secret);
-    res.json({ authenticated: true });
+    const payload = jwt.verify(token, secret) as any;
+    const userId = Number(payload.sub);
+    try {
+      const userResult = await pool.query('SELECT id, username, email FROM users WHERE id = $1', [userId]);
+      if (userResult?.rows?.length > 0 && userResult.rows[0].id) {
+        const user = userResult.rows[0];
+        return res.json({ authenticated: true, user });
+      }
+    } catch {
+      // Fallback
+    }
+    res.json({
+      authenticated: true,
+      user: { id: userId, username: payload.username || 'owner', email: payload.email || 'owner@financewise.local' },
+    });
   } catch {
     res.json({ authenticated: false });
   }

@@ -1,12 +1,6 @@
-// FinanceWise — Landing page (portfolio entry point)
-//
-// Shown to anyone who isn't already logged in. Offers a fully client-side
-// demo (no login, no real data, no backend calls) alongside the real
-// owner login. Nothing here ever exposes real credentials or real data.
-
 interface LandingHandlers {
   onTryDemo: () => void;
-  onLogin: () => void;
+  onLogin: (tab?: 'login' | 'register') => void;
 }
 
 const FEATURES: { icon: string; title: string; desc: string }[] = [
@@ -33,16 +27,16 @@ export function renderLandingScreen(handlers: LandingHandlers): void {
         </div>
         <h2 class="landing-title">Track income. Master budgets. Kill debt. Hit savings goals.</h2>
         <p class="landing-subtitle">
-          A full-stack personal finance tracker — vanilla TypeScript SPA, Express + PostgreSQL API,
-          and an AI financial advisor grounded in your own live data.
+          A full-stack multi-user personal finance tracker — vanilla TypeScript SPA, Express + PostgreSQL API,
+          and an AI financial advisor grounded in your own user-bound live data.
         </p>
         <div class="landing-cta">
-          <button id="btn-try-demo" class="btn btn-primary btn-lg">Try Live Demo →</button>
-          <button id="btn-go-login" class="btn btn-ghost btn-lg">Owner Login</button>
+          <button id="btn-go-register" class="btn btn-primary btn-lg">Create Account →</button>
+          <button id="btn-go-login" class="btn btn-ghost btn-lg">Log In</button>
+          <button id="btn-try-demo" class="btn btn-ghost btn-lg">Try Live Demo</button>
         </div>
         <p class="landing-note">
-          No sign-up, no email, no password. The demo runs entirely in your browser with sample data —
-          nothing you click, add, or delete there ever touches a real account or database.
+          Create your own account to track your finances privately, or try the demo mode to test with sample data.
         </p>
       </div>
 
@@ -68,5 +62,6 @@ export function renderLandingScreen(handlers: LandingHandlers): void {
   `;
 
   document.getElementById('btn-try-demo')?.addEventListener('click', handlers.onTryDemo);
-  document.getElementById('btn-go-login')?.addEventListener('click', handlers.onLogin);
+  document.getElementById('btn-go-register')?.addEventListener('click', () => handlers.onLogin('register'));
+  document.getElementById('btn-go-login')?.addEventListener('click', () => handlers.onLogin('login'));
 }

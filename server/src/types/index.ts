@@ -2,6 +2,20 @@
 // FinanceWise — Server Type Definitions
 // ============================================
 
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthUser {
+  id: number;
+  username: string;
+  email: string;
+}
+
 export interface Category {
   id: number;
   name: string;

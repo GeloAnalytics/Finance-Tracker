@@ -1,13 +1,12 @@
 import pool from '../db/connection';
 import { GoogleGenAI } from '@google/genai';
 
-// Keep the old functions for context gathering
-async function getFinancialContext(): Promise<string> {
+async function getFinancialContext(userId?: number): Promise<string> {
   const [finances, debts, savings, budget] = await Promise.all([
-    analyzeUserFinances(),
-    analyzeUserDebts(),
-    analyzeUserSavings(),
-    analyzeUserBudget()
+    analyzeUserFinances(userId),
+    analyzeUserDebts(userId),
+    analyzeUserSavings(userId),
+    analyzeUserBudget(userId)
   ]);
 
   return `
@@ -27,7 +26,7 @@ ${budget}
 `;
 }
 
-export async function generateAdvisorResponse(userMessage: string): Promise<string> {
+export async function generateAdvisorResponse(userMessage: string, userId?: number): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey || apiKey === 'your_gemini_api_key_here') {
@@ -36,7 +35,7 @@ export async function generateAdvisorResponse(userMessage: string): Promise<stri
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const context = await getFinancialContext();
+    const context = await getFinancialContext(userId);
 
     const systemPrompt = `You are FinanceWise Advisor, a helpful, encouraging, and expert financial AI assistant. 
 Your goal is to provide personalized financial advice, explain financial concepts clearly, and help the user manage their money effectively.
@@ -63,17 +62,19 @@ When answering the user's question, try to reference their actual data if it's r
   }
 }
 
-// Below are the context-gathering functions repurposed for the AI prompt
-async function analyzeUserFinances(): Promise<string> {
+async function analyzeUserFinances(userId?: number): Promise<string> {
   try {
     const now = new Date();
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
 
+    const uClause = userId ? 'AND (user_id = $3 OR user_id IS NULL)' : '';
+    const params = userId ? [month, year, userId] : [month, year];
+
     const monthly = await pool.query(`
       SELECT type, COALESCE(SUM(amount), 0) as total FROM transactions
-      WHERE EXTRACT(MONTH FROM date) = $1 AND EXTRACT(YEAR FROM date) = $2 GROUP BY type
-    `, [month, year]);
+      WHERE EXTRACT(MONTH FROM date) = $1 AND EXTRACT(YEAR FROM date) = $2 ${uClause} GROUP BY type
+    `, params);
 
     let income = 0, expenses = 0;
     monthly.rows.forEach((r: any) => {
@@ -93,9 +94,12 @@ async function analyzeUserFinances(): Promise<string> {
   }
 }
 
-async function analyzeUserDebts(): Promise<string> {
+async function analyzeUserDebts(userId?: number): Promise<string> {
   try {
-    const debts = await pool.query('SELECT * FROM debts WHERE is_active = true ORDER BY interest_rate DESC');
+    const uClause = userId ? 'WHERE (user_id = $1 OR user_id IS NULL) AND is_active = true' : 'WHERE is_active = true';
+    const params = userId ? [userId] : [];
+
+    const debts = await pool.query(`SELECT * FROM debts ${uClause} ORDER BY interest_rate DESC`, params);
     if (debts.rows.length === 0) {
       return `No active debts recorded.`;
     }
@@ -110,9 +114,12 @@ async function analyzeUserDebts(): Promise<string> {
   }
 }
 
-async function analyzeUserSavings(): Promise<string> {
+async function analyzeUserSavings(userId?: number): Promise<string> {
   try {
-    const goals = await pool.query('SELECT * FROM savings_goals ORDER BY is_completed ASC');
+    const uClause = userId ? 'WHERE (user_id = $1 OR user_id IS NULL)' : '';
+    const params = userId ? [userId] : [];
+
+    const goals = await pool.query(`SELECT * FROM savings_goals ${uClause} ORDER BY is_completed ASC`, params);
     if (goals.rows.length === 0) {
       return `No savings goals set.`;
     }
@@ -127,18 +134,23 @@ async function analyzeUserSavings(): Promise<string> {
   }
 }
 
-async function analyzeUserBudget(): Promise<string> {
+async function analyzeUserBudget(userId?: number): Promise<string> {
   try {
     const now = new Date();
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
+
+    const uClauseBudget = userId ? 'AND (b.user_id = $3 OR b.user_id IS NULL)' : '';
+    const uClauseTrans = userId ? 'AND (user_id = $3 OR user_id IS NULL)' : '';
+    const params = userId ? [month, year, userId] : [month, year];
+
     const budgets = await pool.query(`
       SELECT b.amount as budget, c.name, COALESCE(s.total, 0) as spent
       FROM budgets b JOIN categories c ON b.category_id = c.id
       LEFT JOIN (SELECT category_id, SUM(amount) as total FROM transactions
-        WHERE type='expense' AND EXTRACT(MONTH FROM date)=$1 AND EXTRACT(YEAR FROM date)=$2 GROUP BY category_id
-      ) s ON b.category_id = s.category_id WHERE b.month=$1 AND b.year=$2 ORDER BY c.name
-    `, [month, year]);
+        WHERE type='expense' AND EXTRACT(MONTH FROM date)=$1 AND EXTRACT(YEAR FROM date)=$2 ${uClauseTrans} GROUP BY category_id
+      ) s ON b.category_id = s.category_id WHERE b.month=$1 AND b.year=$2 ${uClauseBudget} ORDER BY c.name
+    `, params);
     if (budgets.rows.length === 0) {
       return `No budgets set for this month.`;
     }
