@@ -23,7 +23,7 @@ export const app = express();
 // Middleware
 const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
   .split(',')
-  .map(o => o.trim())
+  .map(o => o.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
 app.use(cors({

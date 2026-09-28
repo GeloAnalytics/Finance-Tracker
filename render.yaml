@@ -2,10 +2,11 @@ services:
   # Backend Web Service
   - type: web
     name: financewise-server
-    env: node
+    runtime: node
     rootDir: server
-    buildCommand: npm install && npm run build && npm run migrate:up
+    buildCommand: npm ci --include=dev && npm run build && npm run migrate:up
     startCommand: npm start
+    healthCheckPath: /api/health
     envVars:
       - key: PORT
         value: 3001
@@ -22,15 +23,21 @@ services:
       - key: ADMIN_PASSWORD_HASH
         sync: false # Set manually in the Render Dashboard — a bcrypt hash of your login password (do not use plaintext AUTH_PASSWORD in production)
       - key: CLIENT_ORIGIN
-        value: "https://financewise-client.onrender.com" # Update to match the actual deployed client URL
+        fromService:
+          type: web
+          name: financewise-client
+          envVarKey: RENDER_EXTERNAL_URL
 
   # Frontend Static Site
   - type: web
     name: financewise-client
-    env: static
+    runtime: static
     rootDir: client
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     staticPublishPath: ./dist
     envVars:
-      - key: VITE_API_URL
-        value: "https://finance-tracker-m7l4.onrender.com/api" # Must include /api — the client appends route paths like /transactions directly
+      - key: VITE_API_ORIGIN
+        fromService:
+          type: web
+          name: financewise-server
+          envVarKey: RENDER_EXTERNAL_URL

@@ -29,8 +29,9 @@ import type {
 } from './types';
 import { isDemoMode } from './demo/demo-state.js';
 import { mockApi } from './demo/mock-api.js';
+import { getApiBase } from './config.js';
 
-const BASE = import.meta.env.VITE_API_URL || '/api';
+const BASE = getApiBase();
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, {

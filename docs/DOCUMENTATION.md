@@ -221,7 +221,8 @@ All routes are under `/api`. Everything except `/api/auth/*` and `/api/health` r
 **Client**
 | Var | Purpose |
 |---|---|
-| `VITE_API_URL` | Absolute API base URL for production builds (defaults to `/api`, dev-proxied to `localhost:3001`) |
+| `VITE_API_ORIGIN` | Backend origin supplied by Render (`RENDER_EXTERNAL_URL`); the client adds `/api` automatically |
+| `VITE_API_URL` | Optional manual API base URL override (may include `/api`); defaults to `/api`, dev-proxied to `localhost:3001` |
 
 ---
 
@@ -229,8 +230,8 @@ All routes are under `/api`. Everything except `/api/auth/*` and `/api/health` r
 
 Defined in `render.yaml` — two Render services, no Dockerfile:
 
-- **`financewise-server`** (Node web service, `rootDir: server`) — build: `npm install && npm run build && npm run migrate:up` (migrations run as part of the build); start: `npm start`. Requires `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` (never plaintext in prod), and `CLIENT_ORIGIN`.
-- **`financewise-client`** (static site, `rootDir: client`) — build: `npm install && npm run build`, publishes `./dist`; requires `VITE_API_URL` pointing at the deployed server.
+- **`financewise-server`** (Node web service, `rootDir: server`) — build: `npm ci --include=dev && npm run build && npm run migrate:up` (migrations run as part of the build); start: `npm start`. Requires `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD_HASH` (never plaintext in prod). `CLIENT_ORIGIN` is wired to the client service URL by the Blueprint.
+- **`financewise-client`** (static site, `rootDir: client`) — build: `npm ci --include=dev && npm run build`, publishes `./dist`; `VITE_API_ORIGIN` is wired to the server service URL by the Blueprint.
 
 Production database is Supabase-hosted PostgreSQL.
 

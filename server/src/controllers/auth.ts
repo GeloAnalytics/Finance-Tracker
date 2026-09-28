@@ -90,7 +90,12 @@ export async function login(req: Request, res: Response) {
     return res.status(400).json({ error: 'Password is required' });
   }
 
-  const loginId = (identifier || email || username || '').trim();
+  // The legacy owner-login toggle submits only a password. In production,
+  // resolve that request only to the explicitly configured administrator;
+  // never search all users or fall back to a shared password.
+  const loginId = (
+    identifier || email || username || process.env.ADMIN_EMAIL || ''
+  ).trim();
 
   let user: { id: number; username: string; email: string; password_hash?: string; role?: 'user' | 'admin' } | null = null;
 

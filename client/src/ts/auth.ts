@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 // FinanceWise — Auth session helpers
 
-const BASE = import.meta.env.VITE_API_URL || '/api';
+import { getApiBase } from './config.js';
+
+const BASE = getApiBase();
 
 export interface User {
   id: number;
