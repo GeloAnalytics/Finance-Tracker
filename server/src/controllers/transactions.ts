@@ -11,7 +11,7 @@ function buildTransactionFilters(query: Request['query'], userId?: number) {
   let paramIdx = 1;
 
   if (userId) {
-    clause += ` AND (t.user_id = $${paramIdx++} OR t.user_id IS NULL)`;
+    clause += ` AND t.user_id = $${paramIdx++}`;
     params.push(userId);
   }
 
@@ -83,7 +83,7 @@ export async function getTransactions(req: Request, res: Response) {
 // POST /api/transactions
 export async function createTransaction(req: Request, res: Response) {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user!.id;
     const { type, amount, category_id, description, date } = req.body;
 
     const result = await pool.query(
@@ -114,7 +114,7 @@ export async function updateTransaction(req: Request, res: Response) {
     const { id } = req.params;
     const { type, amount, category_id, description, date } = req.body;
 
-    const userClause = userId ? 'AND (user_id = $7 OR user_id IS NULL)' : '';
+    const userClause = userId ? 'AND user_id = $7' : '';
     const params = [type, amount, category_id, description, date, id];
     if (userId) params.push(userId as any);
 
@@ -154,7 +154,7 @@ export async function deleteTransaction(req: Request, res: Response) {
     const userId = req.user?.id;
     const { id } = req.params;
     const query = userId
-      ? 'DELETE FROM transactions WHERE id = $1 AND (user_id = $2 OR user_id IS NULL) RETURNING id'
+      ? 'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING id'
       : 'DELETE FROM transactions WHERE id = $1 RETURNING id';
     const params = userId ? [id, userId] : [id];
 

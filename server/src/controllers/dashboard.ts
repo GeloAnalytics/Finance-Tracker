@@ -10,8 +10,8 @@ export async function getDashboardSummary(req: Request, res: Response) {
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
 
-    const uClause = userId ? '(user_id = $1 OR user_id IS NULL)' : '1=1';
-    const uClauseT = userId ? '(t.user_id = $1 OR t.user_id IS NULL)' : '1=1';
+    const uClause = userId ? 'user_id = $1' : '1=1';
+    const uClauseT = userId ? 't.user_id = $1' : '1=1';
     const uParams = userId ? [userId] : [];
 
     // Total income & expenses (all time)
@@ -26,7 +26,7 @@ export async function getDashboardSummary(req: Request, res: Response) {
 
     // This month
     const mParams = userId ? [month, year, userId] : [month, year];
-    const uClauseMonthly = userId ? 'AND (user_id = $3 OR user_id IS NULL)' : '';
+    const uClauseMonthly = userId ? 'AND user_id = $3' : '';
     const monthly = await pool.query(`
       SELECT type, COALESCE(SUM(amount), 0) as total FROM transactions
       WHERE EXTRACT(MONTH FROM date) = $1 AND EXTRACT(YEAR FROM date) = $2 ${uClauseMonthly}
@@ -39,7 +39,7 @@ export async function getDashboardSummary(req: Request, res: Response) {
     });
 
     // Spending by category (this month)
-    const uClauseByCat = userId ? 'AND (t.user_id = $3 OR t.user_id IS NULL)' : '';
+    const uClauseByCat = userId ? 'AND t.user_id = $3' : '';
     const byCat = await pool.query(`
       SELECT c.name, c.icon, COALESCE(SUM(t.amount), 0) as amount
       FROM transactions t JOIN categories c ON t.category_id = c.id

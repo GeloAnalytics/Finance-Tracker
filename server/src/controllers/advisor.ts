@@ -5,7 +5,7 @@ import { generateAdvisorResponse } from '../services/advisor-engine';
 // POST /api/advisor/chat
 export async function chat(req: Request, res: Response) {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user!.id;
     const { message } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ error: 'Message is required' });
@@ -37,10 +37,11 @@ export async function chat(req: Request, res: Response) {
 export async function getHistory(req: Request, res: Response) {
   try {
     const userId = req.user?.id;
-    const limit = parseInt(req.query.limit as string) || 50;
+    const parsedLimit = parseInt(req.query.limit as string, 10);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 50;
 
     const query = userId
-      ? 'SELECT * FROM chat_messages WHERE (user_id = $1 OR user_id IS NULL) ORDER BY created_at ASC LIMIT $2'
+      ? 'SELECT * FROM chat_messages WHERE user_id = $1 ORDER BY created_at ASC LIMIT $2'
       : 'SELECT * FROM chat_messages ORDER BY created_at ASC LIMIT $1';
     const params = userId ? [userId, limit] : [limit];
 
@@ -57,7 +58,7 @@ export async function clearHistory(req: Request, res: Response) {
   try {
     const userId = req.user?.id;
     const query = userId
-      ? 'DELETE FROM chat_messages WHERE (user_id = $1 OR user_id IS NULL)'
+      ? 'DELETE FROM chat_messages WHERE user_id = $1'
       : 'DELETE FROM chat_messages';
     const params = userId ? [userId] : [];
 

@@ -13,6 +13,8 @@ import advisorRoutes from './routes/advisor';
 import { requireAuth } from './middleware/auth';
 
 import billRoutes from './routes/bills';
+import adminRoutes from './routes/admin';
+import { requireAdmin } from './middleware/auth';
 
 dotenv.config();
 
@@ -30,13 +32,40 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+      callback(null, false);
     }
   },
   credentials: true,
 }));
+
+// CORS controls response access; it does not by itself stop a cross-site
+// state-changing request. Reject those requests explicitly as well.
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    const origin = req.get('origin');
+    if (origin && !allowedOrigins.includes(origin)) {
+      return res.status(403).json({ error: 'Untrusted request origin' });
+    }
+  }
+  next();
+});
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+
+// Baseline security headers for the API. The frontend is a separate service,
+// so a strict API CSP is not useful here, but these headers still reduce the
+// impact of accidental embedding, MIME sniffing, and referrer leakage.
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Cache-Control', 'no-store');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
 
 // Request logging (skip in production/test to avoid leaking query strings into logs / noisy test output)
 if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
@@ -61,6 +90,7 @@ app.use('/api/categories', requireAuth, (req, res) => {
   import('./controllers/dashboard').then(m => m.getCategories(req, res));
 });
 app.use('/api/advisor', requireAuth, advisorRoutes);
+app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
 
 // Health check — includes DB connectivity diagnostic
 export const dbStatus: { ok: boolean; error?: string; tables?: boolean; categories?: number } = {
@@ -79,12 +109,14 @@ app.get('/api/health', async (_req, res) => {
   } catch (e: any) {
     dbProbe.error = e.message;
   }
+  const database = process.env.NODE_ENV === 'production'
+    ? { connected: dbProbe.connected }
+    : { ...dbStatus, probe: dbProbe };
   res.json({
     status: 'ok',
     version: 'v2-autoinit',
     timestamp: new Date().toISOString(),
     name: 'FinanceWise API',
-    database: { ...dbStatus, probe: dbProbe },
-    env: { has_database_url: !!process.env.DATABASE_URL },
+    database,
   });
 });

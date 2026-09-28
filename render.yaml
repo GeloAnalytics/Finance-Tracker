@@ -15,7 +15,11 @@ services:
         sync: false # Set this value manually in the Render Dashboard (Supabase connection string)
       - key: JWT_SECRET
         sync: false # Set manually in the Render Dashboard — long random string, e.g. `openssl rand -hex 32`
-      - key: AUTH_PASSWORD_HASH
+      - key: ADMIN_EMAIL
+        sync: false # Developer/support email used to bootstrap the admin account
+      - key: ADMIN_USERNAME
+        sync: false # Developer/support username
+      - key: ADMIN_PASSWORD_HASH
         sync: false # Set manually in the Render Dashboard — a bcrypt hash of your login password (do not use plaintext AUTH_PASSWORD in production)
       - key: CLIENT_ORIGIN
         value: "https://financewise-client.onrender.com" # Update to match the actual deployed client URL

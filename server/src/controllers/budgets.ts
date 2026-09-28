@@ -121,8 +121,8 @@ export async function getBudgets(req: Request, res: Response) {
     const month = parseInt(req.query.month as string) || (now.getMonth() + 1);
     const year = parseInt(req.query.year as string) || now.getFullYear();
 
-    const userWhereBudget = userId ? '(b.user_id = $3 OR b.user_id IS NULL)' : '1=1';
-    const userWhereSpent = userId ? '(user_id = $3 OR user_id IS NULL)' : '1=1';
+    const userWhereBudget = userId ? 'b.user_id = $3' : '1=1';
+    const userWhereSpent = userId ? 'user_id = $3' : '1=1';
     const params = userId ? [month, year, userId] : [month, year];
 
     // Get user custom or default allocations
@@ -187,7 +187,7 @@ export async function getBudgets(req: Request, res: Response) {
 // POST /api/budgets
 export async function createBudget(req: Request, res: Response) {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user!.id;
     const { category_id, amount, month, year } = req.body;
 
     const result = await pool.query(`
@@ -217,7 +217,7 @@ export async function deleteBudget(req: Request, res: Response) {
     const userId = req.user?.id;
     const { id } = req.params;
     const query = userId
-      ? 'DELETE FROM budgets WHERE id = $1 AND (user_id = $2 OR user_id IS NULL) RETURNING id'
+      ? 'DELETE FROM budgets WHERE id = $1 AND user_id = $2 RETURNING id'
       : 'DELETE FROM budgets WHERE id = $1 RETURNING id';
     const params = userId ? [id, userId] : [id];
 

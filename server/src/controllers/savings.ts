@@ -6,7 +6,7 @@ export async function getSavingsGoals(req: Request, res: Response) {
   try {
     const userId = req.user?.id;
     const query = userId
-      ? 'SELECT * FROM savings_goals WHERE (user_id = $1 OR user_id IS NULL) ORDER BY is_completed ASC, created_at DESC'
+      ? 'SELECT * FROM savings_goals WHERE user_id = $1 ORDER BY is_completed ASC, created_at DESC'
       : 'SELECT * FROM savings_goals ORDER BY is_completed ASC, created_at DESC';
     const params = userId ? [userId] : [];
 
@@ -28,7 +28,7 @@ export async function getSavingsGoals(req: Request, res: Response) {
 // POST /api/savings
 export async function createSavingsGoal(req: Request, res: Response) {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user!.id;
     const { name, target_amount, current_amount, deadline, icon } = req.body;
     const result = await pool.query(
       `INSERT INTO savings_goals (user_id, name, target_amount, current_amount, deadline, icon)
@@ -49,7 +49,7 @@ export async function updateSavingsGoal(req: Request, res: Response) {
     const { id } = req.params;
     const { name, target_amount, current_amount, deadline, icon, is_completed } = req.body;
 
-    const userClause = userId ? 'AND (user_id = $7 OR user_id IS NULL)' : '';
+    const userClause = userId ? 'AND user_id = $7' : '';
     const params = [name, target_amount, current_amount, deadline, icon, is_completed, id];
     if (userId) params.push(userId as any);
 
@@ -75,7 +75,7 @@ export async function deleteSavingsGoal(req: Request, res: Response) {
     const userId = req.user?.id;
     const { id } = req.params;
     const query = userId
-      ? 'DELETE FROM savings_goals WHERE id = $1 AND (user_id = $2 OR user_id IS NULL) RETURNING id'
+      ? 'DELETE FROM savings_goals WHERE id = $1 AND user_id = $2 RETURNING id'
       : 'DELETE FROM savings_goals WHERE id = $1 RETURNING id';
     const params = userId ? [id, userId] : [id];
 
@@ -94,7 +94,7 @@ export async function contributeSavings(req: Request, res: Response) {
     const userId = req.user?.id;
     const { id } = req.params;
     const { amount } = req.body;
-    const userClause = userId ? 'AND (user_id = $3 OR user_id IS NULL)' : '';
+    const userClause = userId ? 'AND user_id = $3' : '';
     const params = userId ? [amount, id, userId] : [amount, id];
 
     const result = await pool.query(

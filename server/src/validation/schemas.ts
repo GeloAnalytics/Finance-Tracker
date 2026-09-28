@@ -2,13 +2,19 @@ import { z } from 'zod';
 
 const positiveAmount = z.coerce.number().positive();
 const nonNegativeAmount = z.coerce.number().nonnegative();
+const dateOnly = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD')
+  .refine(value => {
+    const date = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  }, 'Date is not valid');
 
 export const createTransactionSchema = z.object({
   type: z.enum(['income', 'expense']),
   amount: positiveAmount,
   category_id: z.coerce.number().int().positive().nullable().optional(),
   description: z.string().trim().max(500).nullable().optional(),
-  date: z.string().optional(),
+  date: dateOnly.optional(),
 });
 
 export const updateTransactionSchema = z.object({
@@ -16,7 +22,7 @@ export const updateTransactionSchema = z.object({
   amount: positiveAmount.optional(),
   category_id: z.coerce.number().int().positive().nullable().optional(),
   description: z.string().trim().max(500).nullable().optional(),
-  date: z.string().optional(),
+  date: dateOnly.optional(),
 });
 
 export const createDebtSchema = z.object({
@@ -64,4 +70,26 @@ export const createBudgetSchema = z.object({
   amount: nonNegativeAmount,
   month: z.coerce.number().int().min(1).max(12),
   year: z.coerce.number().int().min(2020),
+});
+
+export const createBillSchema = z.object({
+  item_type: z.enum(['bill', 'to_buy']),
+  name: z.string().trim().min(1).max(150),
+  amount: nonNegativeAmount,
+  due_date: dateOnly.nullable().optional(),
+  category_id: z.coerce.number().int().positive().nullable().optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const updateBillSchema = z.object({
+  name: z.string().trim().min(1).max(150).optional(),
+  amount: nonNegativeAmount.optional(),
+  due_date: dateOnly.nullable().optional(),
+  category_id: z.coerce.number().int().positive().nullable().optional(),
+  status: z.enum(['pending', 'completed']).optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const advisorChatSchema = z.object({
+  message: z.string().trim().min(1, 'Message is required').max(4000, 'Message is too long'),
 });

@@ -11,9 +11,9 @@ export async function getBills(req: Request, res: Response) {
       SELECT b.*, c.name as category_name, c.icon as category_icon
       FROM bills_and_items b
       LEFT JOIN categories c ON b.category_id = c.id
-      WHERE (b.user_id = $1 OR b.user_id IS NULL)
+      WHERE b.user_id = $1
     `;
-    const params: any[] = [userId || null];
+    const params: any[] = [userId];
     let paramIdx = 2;
 
     if (item_type && (item_type === 'bill' || item_type === 'to_buy')) {
@@ -36,9 +36,9 @@ export async function getBills(req: Request, res: Response) {
         item_type,
         COALESCE(SUM(amount), 0) as total
       FROM bills_and_items
-      WHERE (user_id = $1 OR user_id IS NULL) AND status = 'pending'
+      WHERE user_id = $1 AND status = 'pending'
       GROUP BY item_type
-    `, [userId || null]);
+    `, [userId]);
 
     let totalPendingBills = 0;
     let totalPendingToBuy = 0;
@@ -62,7 +62,7 @@ export async function getBills(req: Request, res: Response) {
 // POST /api/bills
 export async function createBill(req: Request, res: Response) {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user!.id;
     const { item_type, name, amount, due_date, category_id, notes } = req.body;
 
     if (!item_type || (item_type !== 'bill' && item_type !== 'to_buy')) {
@@ -107,7 +107,7 @@ export async function updateBill(req: Request, res: Response) {
     const { id } = req.params;
     const { name, amount, due_date, category_id, status, notes } = req.body;
 
-    const userClause = userId ? 'AND (user_id = $7 OR user_id IS NULL)' : '';
+    const userClause = userId ? 'AND user_id = $7' : '';
     const params = [name, amount, due_date, category_id, status, notes, id];
     if (userId) params.push(userId as any);
 
@@ -148,7 +148,7 @@ export async function deleteBill(req: Request, res: Response) {
     const userId = req.user?.id;
     const { id } = req.params;
     const query = userId
-      ? 'DELETE FROM bills_and_items WHERE id = $1 AND (user_id = $2 OR user_id IS NULL) RETURNING id'
+      ? 'DELETE FROM bills_and_items WHERE id = $1 AND user_id = $2 RETURNING id'
       : 'DELETE FROM bills_and_items WHERE id = $1 RETURNING id';
     const params = userId ? [id, userId] : [id];
 
@@ -167,13 +167,13 @@ export async function deleteBill(req: Request, res: Response) {
 // POST /api/bills/:id/pay-or-buy (Mark completed & optional expense transaction creation)
 export async function payOrBuyItem(req: Request, res: Response) {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user!.id;
     const { id } = req.params;
     const { create_transaction } = req.body;
 
     const itemRes = await pool.query(
       `UPDATE bills_and_items SET status = 'completed', updated_at = NOW()
-       WHERE id = $1 AND (user_id = $2 OR user_id IS NULL) RETURNING *`,
+       WHERE id = $1 AND user_id = $2 RETURNING *`,
       [id, userId]
     );
 

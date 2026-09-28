@@ -68,7 +68,7 @@ async function analyzeUserFinances(userId?: number): Promise<string> {
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
 
-    const uClause = userId ? 'AND (user_id = $3 OR user_id IS NULL)' : '';
+    const uClause = userId ? 'AND user_id = $3' : '';
     const params = userId ? [month, year, userId] : [month, year];
 
     const monthly = await pool.query(`
@@ -96,7 +96,7 @@ async function analyzeUserFinances(userId?: number): Promise<string> {
 
 async function analyzeUserDebts(userId?: number): Promise<string> {
   try {
-    const uClause = userId ? 'WHERE (user_id = $1 OR user_id IS NULL) AND is_active = true' : 'WHERE is_active = true';
+    const uClause = userId ? 'WHERE user_id = $1 AND is_active = true' : 'WHERE is_active = true';
     const params = userId ? [userId] : [];
 
     const debts = await pool.query(`SELECT * FROM debts ${uClause} ORDER BY interest_rate DESC`, params);
@@ -116,7 +116,7 @@ async function analyzeUserDebts(userId?: number): Promise<string> {
 
 async function analyzeUserSavings(userId?: number): Promise<string> {
   try {
-    const uClause = userId ? 'WHERE (user_id = $1 OR user_id IS NULL)' : '';
+    const uClause = userId ? 'WHERE user_id = $1' : '';
     const params = userId ? [userId] : [];
 
     const goals = await pool.query(`SELECT * FROM savings_goals ${uClause} ORDER BY is_completed ASC`, params);
@@ -140,8 +140,8 @@ async function analyzeUserBudget(userId?: number): Promise<string> {
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
 
-    const uClauseBudget = userId ? 'AND (b.user_id = $3 OR b.user_id IS NULL)' : '';
-    const uClauseTrans = userId ? 'AND (user_id = $3 OR user_id IS NULL)' : '';
+    const uClauseBudget = userId ? 'AND b.user_id = $3' : '';
+    const uClauseTrans = userId ? 'AND user_id = $3' : '';
     const params = userId ? [month, year, userId] : [month, year];
 
     const budgets = await pool.query(`

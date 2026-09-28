@@ -100,15 +100,17 @@ Migration commands: `npm run migrate:up|down|create` (server workspace).
 
 ## 5. Authentication & Authorization
 
-**Single shared-password model — no user registration, no roles, no multi-tenancy.**
+**Account-based authentication with user isolation and an explicit administrator role.**
 
-- `POST /api/auth/login` compares the posted password against a bcrypt hash via `bcrypt.compare`. The hash comes from `AUTH_PASSWORD_HASH` in production, or is derived at runtime from `AUTH_PASSWORD` in dev.
-- On success, the server signs a JWT (`{ sub: 'owner' }`, `JWT_SECRET`, 7-day expiry) and sets it as an **httpOnly cookie** (`fw_token`).
+- `POST /api/auth/login` compares the posted password against the bcrypt hash stored for the selected account via `bcrypt.compare`.
+- Registration stores a bcrypt password hash and creates a normal `user` account. On success, the server signs a JWT (`sub`, account role, `JWT_SECRET`, 7-day expiry) and sets it as an **httpOnly cookie** (`fw_token`).
 - Cookie flags: `httpOnly: true` always; `secure: true` in production; `sameSite: 'none'` in production (client/server are on different Render origins) vs `'lax'` in dev; 7-day `maxAge`.
 - `requireAuth` middleware verifies the JWT on every request and 401s on missing/invalid/expired tokens; it 500s (fails closed) if `JWT_SECRET` isn't configured.
 - Every resource router (`transactions`, `budgets`, `debts`, `savings`, `dashboard`, `categories`, `advisor`) sits behind `requireAuth`. Only `/api/auth/*` and `/api/health` are public.
-- No authorization tiers beyond "authenticated or not" — appropriate for a single-user app.
-- `npm run hash-password -- "pw"` generates a bcrypt hash for `AUTH_PASSWORD_HASH`, so production never needs to store a plaintext password.
+- Every protected request re-checks that the account still exists and is active. Admin/support access is separate and requires `role = 'admin'`.
+- Promote the developer account after registering it with `npm run promote-user -- developer@example.com` from the server directory. This command uses database credentials and never returns or changes a password.
+- `GET /api/admin/users` lists account metadata only. `GET /api/admin/users/:id/overview` is read-only support access, excludes password hashes, and records each lookup in `admin_access_log`.
+- `npm run hash-password -- "pw"` generates a bcrypt hash for `ADMIN_PASSWORD_HASH`, so production never needs to store a plaintext password.
 
 ---
 
@@ -122,13 +124,12 @@ Hardened in commit `20a8c64` ("prevent stored XSS, validate all inputs with zod,
 - **CORS** — Explicit allow-list from `CLIENT_ORIGIN` (comma-separated); any other `Origin` is rejected; `credentials: true`.
 - **Session cookie hardening** — `httpOnly`, `secure` in prod, `sameSite: 'none'` in prod (paired with `secure`), 7-day expiry, JWT-signed.
 - **Password hashing** — bcrypt (`bcryptjs`), cost factor 10.
-- **Fail-closed misconfiguration handling** — auth middleware and login both 500 if `JWT_SECRET`/`AUTH_PASSWORD*` are unset, rather than silently allowing access.
+- **Fail-closed misconfiguration handling** — auth middleware and login both 500 if `JWT_SECRET` is unset, rather than silently allowing access.
 - **Log hygiene** — request logging is disabled in `production`/`test` to avoid leaking query strings.
 - **DB transport** — production pool uses `ssl: { rejectUnauthorized: false }`: encrypts the connection but does **not** verify the Supabase CA certificate.
 
 **Known gaps** (not currently implemented):
-- No CSRF token (mitigated somewhat by `sameSite` cookies + strict CORS, but not a substitute)
-- No rate limiting on login or any endpoint
+- Login attempts are rate-limited in-process (20 attempts per IP per 15 minutes; use a shared store before scaling to multiple instances)
 - No `helmet` or equivalent security-headers middleware
 - `rejectUnauthorized: false` on the DB TLS connection weakens MITM protection to the database
 
@@ -140,8 +141,13 @@ All routes are under `/api`. Everything except `/api/auth/*` and `/api/health` r
 
 **Auth**
 - `POST /api/auth/login` — verify password, set session cookie
+- `POST /api/auth/register` — create a user account
 - `POST /api/auth/logout` — clear session cookie
 - `GET /api/auth/me` — check session validity
+
+**Administrator support** (admin accounts only)
+- `GET /api/admin/users?limit=&offset=` — list users without credentials
+- `GET /api/admin/users/:id/overview` — read-only financial overview for support; access is logged
 
 **Transactions**
 - `GET /api/transactions?type=&category_id=&from=&to=&search=&limit=&offset=`
@@ -206,8 +212,8 @@ All routes are under `/api`. Everything except `/api/auth/*` and `/api/health` r
 | `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASSWORD`/`DB_NAME` | Local Postgres connection, used when `DATABASE_URL` is absent |
 | `PORT` | Server port (default 3001) |
 | `JWT_SECRET` | Signs session JWTs — required, fails closed if unset |
-| `AUTH_PASSWORD` | Plaintext login password (dev only), hashed at runtime |
-| `AUTH_PASSWORD_HASH` | bcrypt hash of the login password (required for production; generate via `npm run hash-password`) |
+| `ADMIN_EMAIL` / `ADMIN_USERNAME` | Developer/support account to ensure at server startup when paired with `ADMIN_PASSWORD_HASH`. |
+| `ADMIN_PASSWORD_HASH` | bcrypt hash for the developer/support account (generate via `npm run hash-password`) |
 | `CLIENT_ORIGIN` | Comma-separated allowed CORS origins |
 | `GEMINI_API_KEY` | Google Gemini API key for the advisor (advisor degrades gracefully if unset) |
 | `NODE_ENV` | Affects cookie flags, request logging, CORS defaults |
@@ -223,7 +229,7 @@ All routes are under `/api`. Everything except `/api/auth/*` and `/api/health` r
 
 Defined in `render.yaml` — two Render services, no Dockerfile:
 
-- **`financewise-server`** (Node web service, `rootDir: server`) — build: `npm install && npm run build && npm run migrate:up` (migrations run as part of the build); start: `npm start`. Requires `DATABASE_URL`, `JWT_SECRET`, `AUTH_PASSWORD_HASH` (never plaintext in prod), `CLIENT_ORIGIN` set manually in Render.
+- **`financewise-server`** (Node web service, `rootDir: server`) — build: `npm install && npm run build && npm run migrate:up` (migrations run as part of the build); start: `npm start`. Requires `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` (never plaintext in prod), and `CLIENT_ORIGIN`.
 - **`financewise-client`** (static site, `rootDir: client`) — build: `npm install && npm run build`, publishes `./dist`; requires `VITE_API_URL` pointing at the deployed server.
 
 Production database is Supabase-hosted PostgreSQL.
@@ -234,7 +240,7 @@ Production database is Supabase-hosted PostgreSQL.
 
 Public portfolio visitors land on a marketing page, not the login screen. Anyone unauthenticated sees `renderLandingScreen()` (`client/src/ts/views/landing.ts`) with two choices: **Owner Login** (the real, unchanged password flow) or **Try Live Demo**.
 
-**Design goal:** the demo must be completely safe to expose publicly — zero risk to the real database, JWT secret, `AUTH_PASSWORD_HASH`, or `GEMINI_API_KEY`. It achieves this by never making a single network request to the server.
+**Design goal:** the demo must be completely safe to expose publicly — zero risk to the real database, JWT secret, admin password hash, or `GEMINI_API_KEY`. It achieves this by never making a single network request to the server.
 
 - `client/src/ts/demo/demo-state.ts` — `isDemoMode()`/`enterDemoMode()`/`exitDemoMode()`, backed by a `sessionStorage` flag (`fw_demo_mode`). A fresh tab always starts clean; a reload mid-demo keeps edits.
 - `client/src/ts/demo/mock-data.ts` — generates realistic ₱-denominated dummy data (6 months of transactions, budgets, 3 debts, 4 savings goals) relative to the visitor's current date, so the demo never looks stale.

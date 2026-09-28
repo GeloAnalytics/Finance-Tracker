@@ -1,5 +1,5 @@
 // Usage: npm run hash-password -- "your-password"
-// Prints a bcrypt hash suitable for the AUTH_PASSWORD_HASH env var.
+// Prints a bcrypt hash suitable for the ADMIN_PASSWORD_HASH env var.
 import bcrypt from 'bcryptjs';
 
 const password = process.argv[2];

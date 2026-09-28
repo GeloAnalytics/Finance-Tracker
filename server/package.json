@@ -13,6 +13,7 @@
     "migrate:up": "node scripts/migrate.cjs up",
     "migrate:down": "node scripts/migrate.cjs down",
     "migrate:create": "node scripts/migrate.cjs create",
+    "promote-user": "tsx src/scripts/promote-user.ts",
     "lint": "eslint ."
   },
   "dependencies": {

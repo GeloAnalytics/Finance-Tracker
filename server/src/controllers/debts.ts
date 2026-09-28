@@ -8,7 +8,7 @@ export async function getDebts(req: Request, res: Response) {
     const userId = req.user?.id;
     const { active } = req.query;
 
-    let query = userId ? 'SELECT * FROM debts WHERE (user_id = $1 OR user_id IS NULL)' : 'SELECT * FROM debts WHERE 1=1';
+    let query = userId ? 'SELECT * FROM debts WHERE user_id = $1' : 'SELECT * FROM debts WHERE 1=1';
     const params: any[] = userId ? [userId] : [];
 
     if (active !== undefined) {
@@ -37,7 +37,7 @@ export async function getDebts(req: Request, res: Response) {
 // POST /api/debts
 export async function createDebt(req: Request, res: Response) {
   try {
-    const userId = req.user?.id || null;
+    const userId = req.user!.id;
     const { name, total_amount, current_balance, interest_rate, minimum_payment, due_date } = req.body;
 
     const result = await pool.query(
@@ -60,7 +60,7 @@ export async function updateDebt(req: Request, res: Response) {
     const { id } = req.params;
     const { name, total_amount, current_balance, interest_rate, minimum_payment, due_date, is_active } = req.body;
 
-    const userClause = userId ? 'AND (user_id = $8 OR user_id IS NULL)' : '';
+    const userClause = userId ? 'AND user_id = $8' : '';
     const params = [name, total_amount, current_balance, interest_rate, minimum_payment, due_date, is_active, id];
     if (userId) params.push(userId as any);
 
@@ -95,7 +95,7 @@ export async function deleteDebt(req: Request, res: Response) {
     const userId = req.user?.id;
     const { id } = req.params;
     const query = userId
-      ? 'DELETE FROM debts WHERE id = $1 AND (user_id = $2 OR user_id IS NULL) RETURNING id'
+      ? 'DELETE FROM debts WHERE id = $1 AND user_id = $2 RETURNING id'
       : 'DELETE FROM debts WHERE id = $1 RETURNING id';
     const params = userId ? [id, userId] : [id];
 
@@ -115,10 +115,16 @@ export async function getPayoffPlan(req: Request, res: Response) {
   try {
     const userId = req.user?.id;
     const method = (req.query.method as string) || 'snowball';
+    if (method !== 'snowball' && method !== 'avalanche') {
+      return res.status(400).json({ error: 'Method must be snowball or avalanche' });
+    }
     const extraPayment = parseFloat(req.query.extra_payment as string) || 0;
+    if (!Number.isFinite(extraPayment) || extraPayment < 0) {
+      return res.status(400).json({ error: 'Extra payment must be a non-negative number' });
+    }
 
     const query = userId
-      ? 'SELECT * FROM debts WHERE (user_id = $1 OR user_id IS NULL) AND is_active = true AND current_balance > 0 ORDER BY id'
+      ? 'SELECT * FROM debts WHERE user_id = $1 AND is_active = true AND current_balance > 0 ORDER BY id'
       : 'SELECT * FROM debts WHERE is_active = true AND current_balance > 0 ORDER BY id';
     const params = userId ? [userId] : [];
 

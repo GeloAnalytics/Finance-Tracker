@@ -25,6 +25,8 @@ export async function initializeDatabase(): Promise<void> {
           username VARCHAR(100) NOT NULL UNIQUE,
           email VARCHAR(255) NOT NULL UNIQUE,
           password_hash VARCHAR(255) NOT NULL,
+          role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
       );
@@ -128,6 +130,15 @@ export async function initializeDatabase(): Promise<void> {
           created_at TIMESTAMP DEFAULT NOW()
       );
 
+      CREATE TABLE IF NOT EXISTS admin_access_log (
+          id BIGSERIAL PRIMARY KEY,
+          admin_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+          target_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+          action VARCHAR(50) NOT NULL,
+          ip_address INET,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
       -- Indexes for performance
       CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
       CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
@@ -145,6 +156,36 @@ export async function initializeDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_chat_messages_user ON chat_messages(user_id);
     `);
     console.log('✅ Database tables verified / created');
+
+    // Optional deployment bootstrap for the developer/support account. The
+    // password is supplied only as a bcrypt hash through the environment.
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const adminHash = process.env.ADMIN_PASSWORD_HASH;
+    const adminUsername = process.env.ADMIN_USERNAME?.trim() || 'developer';
+    if (adminEmail && adminHash) {
+      const existingAdmin = await client.query('SELECT id FROM users WHERE LOWER(email) = $1', [adminEmail]);
+      let adminId: number;
+      if (existingAdmin.rows.length > 0) {
+        adminId = existingAdmin.rows[0].id;
+        await client.query(
+          "UPDATE users SET role = 'admin', is_active = TRUE, updated_at = NOW() WHERE id = $1",
+          [adminId]
+        );
+      } else {
+        const insertedAdmin = await client.query(
+          "INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, 'admin') RETURNING id",
+          [adminUsername, adminEmail, adminHash]
+        );
+        adminId = insertedAdmin.rows[0].id;
+      }
+      // Older single-user deployments have rows with no owner. Claim those
+      // rows for the explicitly configured developer account once, so they
+      // remain available to support without becoming visible to new users.
+      for (const table of ['transactions', 'budgets', 'debts', 'savings_goals', 'bills_and_items', 'user_budget_allocations', 'chat_messages']) {
+        await client.query(`UPDATE ${table} SET user_id = $1 WHERE user_id IS NULL`, [adminId]);
+      }
+      console.log(`✅ Administrator account ensured for ${adminEmail}`);
+    }
 
     // ── 3. Seed categories if empty ─────────────────────────────────
     const existing = await client.query('SELECT COUNT(*) FROM categories');
