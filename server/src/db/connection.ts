@@ -16,7 +16,9 @@ const isProduction = !!process.env.DATABASE_URL;
 const poolConfig: any = isProduction
   ? {
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      // Verify the database certificate; accepting any certificate would allow
+      // an attacker who can intercept the connection to impersonate Postgres.
+      ssl: { rejectUnauthorized: true },
       max: 5,                      // Supabase free-tier friendly
       idleTimeoutMillis: 30000,    // Close idle clients after 30s
       connectionTimeoutMillis: 10000, // Fail fast if DB unreachable

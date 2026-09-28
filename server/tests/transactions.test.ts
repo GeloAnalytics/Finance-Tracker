@@ -49,4 +49,13 @@ describe('GET /api/transactions pagination and filters', () => {
     // dataParams = [...filters, limit, offset]; countParams = [...filters]
     expect(dataParams.slice(0, -2)).toEqual(countParams);
   });
+
+  it('filters transaction reads by the authenticated user without shared NULL rows', async () => {
+    const agent = await authedAgent();
+    await agent.get('/api/transactions');
+    const [sql, params] = queryMock.mock.calls[0];
+    expect(sql).toContain('t.user_id = $1');
+    expect(sql).not.toContain('user_id IS NULL');
+    expect(params[0]).toBe(1);
+  });
 });

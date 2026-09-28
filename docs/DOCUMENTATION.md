@@ -126,7 +126,7 @@ Hardened in commit `20a8c64` ("prevent stored XSS, validate all inputs with zod,
 - **Password hashing** — bcrypt (`bcryptjs`), cost factor 10.
 - **Fail-closed misconfiguration handling** — auth middleware and login both 500 if `JWT_SECRET` is unset, rather than silently allowing access.
 - **Log hygiene** — request logging is disabled in `production`/`test` to avoid leaking query strings.
-- **DB transport** — production pool uses `ssl: { rejectUnauthorized: false }`: encrypts the connection but does **not** verify the Supabase CA certificate.
+- **DB transport** — production pool uses TLS with certificate verification enabled.
 
 **Known gaps** (not currently implemented):
 - Login attempts are rate-limited in-process (20 attempts per IP per 15 minutes; use a shared store before scaling to multiple instances)

@@ -157,6 +157,11 @@ export async function initializeDatabase(): Promise<void> {
     `);
     console.log('✅ Database tables verified / created');
 
+    // Defensive upgrades for databases created before the role columns were
+    // introduced. Production still applies the versioned migration first.
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user'");
+    await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE');
+
     // Optional deployment bootstrap for the developer/support account. The
     // password is supplied only as a bcrypt hash through the environment.
     const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
