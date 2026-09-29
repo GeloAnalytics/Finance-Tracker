@@ -1,3 +1,4 @@
+-- Up Migration
 -- Migration: Add Bills & To-Buy List + User Custom Budget Allocations
 
 CREATE TABLE IF NOT EXISTS bills_and_items (

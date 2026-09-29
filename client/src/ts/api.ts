@@ -30,17 +30,28 @@ import type {
 import { isDemoMode } from './demo/demo-state.js';
 import { mockApi } from './demo/mock-api.js';
 import { getApiBase } from './config.js';
+import { getAuthToken, setAuthToken } from './auth.js';
 
 const BASE = getApiBase();
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string> || {}),
+  };
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${BASE}${url}`, {
-    headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     ...options,
+    headers,
   });
   if (res.status === 401) {
     // Session expired or missing — reload to show the login screen.
+    setAuthToken(null);
     window.location.reload();
     throw new Error('Session expired');
   }

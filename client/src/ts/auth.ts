@@ -4,11 +4,33 @@
 import { getApiBase } from './config.js';
 
 const BASE = getApiBase();
+const TOKEN_KEY = 'fw_token';
+
+export function getAuthToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // Ignore storage quota / access errors
+  }
+}
 
 export interface User {
   id: number;
   username: string;
   email: string;
+  role?: 'user' | 'admin';
 }
 
 export interface SessionResult {
@@ -18,11 +40,25 @@ export interface SessionResult {
 
 export async function checkSession(): Promise<SessionResult> {
   try {
-    const res = await fetch(`${BASE}/auth/me`, { credentials: 'include' });
-    if (!res.ok) return { authenticated: false };
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${BASE}/auth/me`, {
+      credentials: 'include',
+      headers,
+    });
+    if (!res.ok) {
+      if (res.status === 401) setAuthToken(null);
+      return { authenticated: false };
+    }
     const data = await res.json();
     if (data.authenticated && data.user) {
       return { authenticated: true, user: data.user };
+    }
+    if (!data.authenticated) {
+      setAuthToken(null);
     }
     return { authenticated: !!data.authenticated };
   } catch {
@@ -46,6 +82,9 @@ export async function login(identifier: string, password?: string): Promise<User
   }
 
   const data = await res.json();
+  if (data.token) {
+    setAuthToken(data.token);
+  }
   return data.user;
 }
 
@@ -63,9 +102,13 @@ export async function register(username: string, email: string, password?: strin
   }
 
   const data = await res.json();
+  if (data.token) {
+    setAuthToken(data.token);
+  }
   return data.user;
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`${BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+  setAuthToken(null);
+  await fetch(`${BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
 }

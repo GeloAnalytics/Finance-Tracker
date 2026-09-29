@@ -1,3 +1,4 @@
+-- Up Migration
 -- Migration: Add User Authentication and multi-tenant user isolation
 
 CREATE TABLE IF NOT EXISTS users (

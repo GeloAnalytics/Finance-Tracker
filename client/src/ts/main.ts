@@ -112,8 +112,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         enterDemoMode();
         startApp(true);
       },
-      onLogin: (tab) => renderLoginScreen(() => {
-        checkSession().then(s => startApp(false, s.user));
+      onLogin: (tab) => renderLoginScreen((user) => {
+        startApp(false, user);
       }, tab),
     });
   };

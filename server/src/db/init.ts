@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import pool from './connection';
 
 /**
@@ -161,6 +162,26 @@ export async function initializeDatabase(): Promise<void> {
     // introduced. Production still applies the versioned migration first.
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user'");
     await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE');
+
+    // Keep the password-only owner shortcut usable for local development. It
+    // still resolves to a real users row, so foreign keys and user isolation
+    // behave exactly like a normally registered account. Production uses the
+    // explicit ADMIN_EMAIL/ADMIN_PASSWORD_HASH bootstrap below instead.
+    if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test' && process.env.AUTH_PASSWORD) {
+      const ownerEmail = 'owner@financewise.local';
+      const owner = await client.query(
+        'SELECT id FROM users WHERE LOWER(email) = $1 OR LOWER(username) = $2 LIMIT 1',
+        [ownerEmail, 'owner']
+      );
+      if (owner.rows.length === 0) {
+        const ownerHash = await bcrypt.hash(process.env.AUTH_PASSWORD, 10);
+        await client.query(
+          "INSERT INTO users (username, email, password_hash, role) VALUES ('owner', $1, $2, 'admin') ON CONFLICT DO NOTHING",
+          [ownerEmail, ownerHash]
+        );
+        console.log('✅ Local owner account ensured');
+      }
+    }
 
     // Optional deployment bootstrap for the developer/support account. The
     // password is supplied only as a bcrypt hash through the environment.

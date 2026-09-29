@@ -5,6 +5,15 @@ import pool from '../db/connection';
 
 export const AUTH_COOKIE_NAME = 'fw_token';
 
+export function extractToken(req: Request): string | undefined {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    const token = authHeader.slice(7).trim();
+    if (token) return token;
+  }
+  return req.cookies?.[AUTH_COOKIE_NAME];
+}
+
 /* eslint-disable @typescript-eslint/no-namespace */
 declare global {
   namespace Express {
@@ -22,7 +31,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     return res.status(500).json({ error: 'Server misconfigured' });
   }
 
-  const token = req.cookies?.[AUTH_COOKIE_NAME];
+  const token = extractToken(req);
   if (!token) {
     return res.status(401).json({ error: 'Not authenticated' });
   }

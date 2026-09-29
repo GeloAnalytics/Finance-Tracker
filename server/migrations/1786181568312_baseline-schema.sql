@@ -1,3 +1,4 @@
+-- Up Migration
 -- Baseline migration capturing the schema that db/init.ts has been creating
 -- on every boot. IF NOT EXISTS is kept intentionally so this can be applied
 -- safely against an existing database that already has these tables.

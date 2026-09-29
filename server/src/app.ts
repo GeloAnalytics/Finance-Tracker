@@ -21,15 +21,24 @@ dotenv.config();
 export const app = express();
 
 // Middleware
-const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
   .split(',')
   .map(o => o.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
+const isOriginAllowed = (origin?: string): boolean => {
+  if (!origin) return true;
+  const cleanOrigin = origin.replace(/\/+$/, '');
+  if (configuredOrigins.includes(cleanOrigin)) return true;
+  if (process.env.NODE_ENV !== 'production') {
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) return true;
+  }
+  return false;
+};
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow same-origin/non-browser requests (no Origin header)
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isOriginAllowed(origin)) {
       callback(null, true);
     } else {
       callback(null, false);
@@ -43,7 +52,7 @@ app.use(cors({
 app.use((req, res, next) => {
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
     const origin = req.get('origin');
-    if (origin && !allowedOrigins.includes(origin)) {
+    if (origin && !isOriginAllowed(origin)) {
       return res.status(403).json({ error: 'Untrusted request origin' });
     }
   }

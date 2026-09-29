@@ -1,6 +1,6 @@
-import { login, register } from '../auth.js';
+import { login, register, User } from '../auth.js';
 
-export function renderLoginScreen(onSuccess: () => void, initialTab: 'login' | 'register' = 'login') {
+export function renderLoginScreen(onSuccess: (user: User) => void, initialTab: 'login' | 'register' = 'login') {
   const app = document.getElementById('app');
   if (!app) return;
 
@@ -31,6 +31,7 @@ export function renderLoginScreen(onSuccess: () => void, initialTab: 'login' | '
               id="login-identifier"
               class="form-input"
               placeholder="e.g. alex or alex@example.com"
+              required
               autocomplete="username"
               autofocus
             />
@@ -148,10 +149,12 @@ export function renderLoginScreen(onSuccess: () => void, initialTab: 'login' | '
     if (ownerMode) {
       identifierGroup.style.display = 'none';
       identifierInput.value = '';
+      identifierInput.required = false;
       loginSubtitle.textContent = 'Enter your owner password to sign in.';
       toggleLink.textContent = 'Use normal login';
     } else {
       identifierGroup.style.display = 'block';
+      identifierInput.required = true;
       loginSubtitle.textContent = 'Welcome back! Sign in to access your financial dashboard.';
       toggleLink.textContent = 'Use owner login';
     }
@@ -171,8 +174,8 @@ export function renderLoginScreen(onSuccess: () => void, initialTab: 'login' | '
     try {
       // In owner mode, pass empty string as identifier — the server fallback handles it
       const identifier = ownerMode ? '' : identifierInput.value;
-      await login(identifier, passwordInput.value);
-      onSuccess();
+      const user = await login(identifier, passwordInput.value);
+      onSuccess(user);
     } catch (err: any) {
       errorEl.textContent = err.message || 'Login failed';
       errorEl.style.display = 'block';
@@ -196,8 +199,8 @@ export function renderLoginScreen(onSuccess: () => void, initialTab: 'login' | '
     submitBtn.textContent = 'Creating account…';
 
     try {
-      await register(usernameInput.value, emailInput.value, passwordInput.value);
-      onSuccess();
+      const user = await register(usernameInput.value, emailInput.value, passwordInput.value);
+      onSuccess(user);
     } catch (err: any) {
       errorEl.textContent = err.message || 'Registration failed';
       errorEl.style.display = 'block';

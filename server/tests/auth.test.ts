@@ -66,4 +66,15 @@ describe('auth', () => {
       .set('Cookie', `${AUTH_COOKIE_NAME}=${token}`);
     expect(res.status).toBe(403);
   });
+
+  it('allows protected routes using Authorization Bearer header', async () => {
+    const loginRes = await request(app).post('/api/auth/login').send({ password: 'test-password' });
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.token).toBeDefined();
+
+    const res = await request(app)
+      .get('/api/transactions')
+      .set('Authorization', `Bearer ${loginRes.body.token}`);
+    expect(res.status).not.toBe(401);
+  });
 });
