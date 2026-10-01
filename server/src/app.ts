@@ -15,10 +15,35 @@ import { requireAuth } from './middleware/auth';
 import billRoutes from './routes/bills';
 import adminRoutes from './routes/admin';
 import { requireAdmin } from './middleware/auth';
+import { initializeDatabase } from './db/init';
 
 dotenv.config();
 
 export const app = express();
+
+// Vercel runs this Express app as a serverless function rather than through
+// src/index.ts. Initialize the schema once per warm function so a fresh
+// database is ready before the first request. Render still uses index.ts and
+// keeps its existing startup initialization path.
+let vercelDatabaseReady: Promise<void> | null = null;
+const ensureVercelDatabase = (): Promise<void> => {
+  if (!vercelDatabaseReady) {
+    vercelDatabaseReady = initializeDatabase();
+  }
+  return vercelDatabaseReady;
+};
+
+if (process.env.VERCEL) {
+  app.use(async (_req, res, next) => {
+    try {
+      await ensureVercelDatabase();
+      next();
+    } catch (err: any) {
+      console.error('Vercel database initialization failed:', err.message);
+      res.status(503).json({ error: 'Database unavailable' });
+    }
+  });
+}
 
 // Middleware
 const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
@@ -129,3 +154,12 @@ app.get('/api/health', async (_req, res) => {
     database,
   });
 });
+
+export default app;
+
+// Vercel's automatic Express detector loads this module directly and expects
+// module.exports itself to be the request handler. Keep the normal exports for
+// TypeScript tests and Render, but expose the app directly for Vercel.
+if (process.env.VERCEL) {
+  module.exports = app;
+}

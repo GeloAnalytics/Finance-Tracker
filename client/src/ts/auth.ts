@@ -6,6 +6,25 @@ import { getApiBase } from './config.js';
 const BASE = getApiBase();
 const TOKEN_KEY = 'fw_token';
 
+function apiConnectionError(): Error {
+  const target = BASE.startsWith('/') ? 'the local API server on port 3001' : BASE;
+  return new Error(
+    `Unable to connect to FinanceWise API (${target}). `
+    + 'Start the server with "cd server && npm run dev", or verify the deployed API URL and CORS settings.'
+  );
+}
+
+async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    // Browsers intentionally expose network and CORS failures as the same
+    // TypeError. Replace the opaque native message with an actionable one.
+    if (error instanceof TypeError) throw apiConnectionError();
+    throw error;
+  }
+}
+
 export function getAuthToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -69,7 +88,7 @@ export async function checkSession(): Promise<SessionResult> {
 export async function login(identifier: string, password?: string): Promise<User> {
   // Support both single argument password or dual (identifier, password)
   const reqBody = password !== undefined ? { identifier, password } : { password: identifier };
-  const res = await fetch(`${BASE}/auth/login`, {
+  const res = await authFetch(`${BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -89,7 +108,7 @@ export async function login(identifier: string, password?: string): Promise<User
 }
 
 export async function register(username: string, email: string, password?: string): Promise<User> {
-  const res = await fetch(`${BASE}/auth/register`, {
+  const res = await authFetch(`${BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',

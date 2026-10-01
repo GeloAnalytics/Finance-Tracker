@@ -12,7 +12,15 @@ export function getApiBase(): string {
     import.meta.env.VITE_API_ORIGIN || import.meta.env.VITE_API_URL || ''
   ).trim();
 
-  if (!configured) return '/api';
+  if (!configured) {
+    // A production static host needs the injected Render URL, but local
+    // preview/static servers do not have Vite's /api proxy. Point local
+    // browsers directly at the API so `npm run preview` and Live Server work
+    // the same way as `npm run dev`.
+    const isLocalBrowser = typeof window !== 'undefined'
+      && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+    return isLocalBrowser ? 'http://localhost:3001/api' : '/api';
+  }
   if (configured.startsWith('/')) {
     return configured.replace(/\/+$/, '') || '/api';
   }
