@@ -20,6 +20,10 @@ export const renderBills = async () => {
   const container = document.getElementById('page-container');
   if (!container) return;
 
+  // A transformed router container changes the containing block for fixed
+  // overlays, so remove any previous modal and re-parent the new one to body.
+  document.getElementById('bills-modal-overlay')?.remove();
+
   container.innerHTML = `
     <div class="page-header animate-in stagger-1">
       <div>
@@ -101,6 +105,9 @@ export const renderBills = async () => {
   `;
 
   // ── State ───────────────────────────────────────────────────────────────
+  const billsModal = document.getElementById('bills-modal-overlay');
+  if (billsModal) document.body.appendChild(billsModal);
+
   let activeTab: string = 'all';
   let editingId: number | null = null;
   let allItems: BillItem[] = [];

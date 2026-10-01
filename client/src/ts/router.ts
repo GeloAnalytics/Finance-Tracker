@@ -23,6 +23,9 @@ export function initRouter() {
     const page = hash.split('?')[0];
 
     if (routes[page]) {
+      // Dynamic overlays are mounted outside #page-container so fixed modals
+      // stay viewport-bound. Close stale overlays when changing routes.
+      document.getElementById('bills-modal-overlay')?.remove();
       currentPage = page;
 
       // Update active nav link
