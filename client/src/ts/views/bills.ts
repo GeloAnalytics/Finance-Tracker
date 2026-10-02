@@ -20,14 +20,13 @@ export const renderBills = async () => {
   const container = document.getElementById('page-container');
   if (!container) return;
 
-  // A transformed router container changes the containing block for fixed
-  // overlays, so remove any previous modal and re-parent the new one to body.
+  // Remove any stale modal from a previous visit before re-rendering.
   document.getElementById('bills-modal-overlay')?.remove();
 
   container.innerHTML = `
     <div class="page-header animate-in stagger-1">
       <div>
-        <h2 class="page-title">Bills & Payments</h2>
+        <h2 class="page-title">Bills &amp; Payments</h2>
         <p class="page-subtitle">Track bills to pay and items to buy, separate from your debt tracker.</p>
       </div>
       <button type="button" class="btn btn-primary" id="btn-add-item">+ Add Item</button>
@@ -59,54 +58,58 @@ export const renderBills = async () => {
         <div class="empty-state">Loading…</div>
       </div>
     </div>
-
-    <!-- Add / Edit Modal -->
-    <div id="bills-modal-overlay" class="modal-overlay hidden" style="background:rgba(0,0,0,0.65); z-index:1000;">
-      <div class="glass-card" style="width:min(520px,95vw); max-height:90vh; overflow-y:auto; padding:var(--space-xl); position:relative;">
-        <button id="bills-modal-close" style="position:absolute; top:var(--space-md); right:var(--space-md); background:none; border:none; color:var(--text-primary); font-size:1.5rem; cursor:pointer;">✕</button>
-        <h3 id="modal-title" style="margin-bottom:var(--space-xl);">Add Item</h3>
-        <form id="bills-form" style="display:flex; flex-direction:column; gap:var(--space-lg);">
-          <div>
-            <label style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Type</label>
-            <div style="display:flex; gap:var(--space-sm);">
-              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center;" id="type-bill-label">
-                <input type="radio" name="item_type" value="bill" checked style="display:none;" id="radio-bill" />
-                🧾 Bill to Pay
-              </label>
-              <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center;" id="type-buy-label">
-                <input type="radio" name="item_type" value="to_buy" style="display:none;" id="radio-buy" />
-                🛒 To Buy
-              </label>
-            </div>
-          </div>
-          <div>
-            <label for="bill-name" style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Name *</label>
-            <input type="text" id="bill-name" class="form-input" placeholder="e.g. Electric bill, Netflix…" required />
-          </div>
-          <div>
-            <label for="bill-amount" style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Amount *</label>
-            <input type="number" id="bill-amount" class="form-input" placeholder="0.00" step="0.01" min="0" required />
-          </div>
-          <div>
-            <label for="bill-due" style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Due Date</label>
-            <input type="date" id="bill-due" class="form-input" />
-          </div>
-          <div>
-            <label for="bill-notes" style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Notes</label>
-            <textarea id="bill-notes" class="form-input" rows="2" placeholder="Optional notes…" style="resize:vertical;"></textarea>
-          </div>
-          <div style="display:flex; justify-content:flex-end; gap:var(--space-sm);">
-            <button type="button" class="btn btn-ghost" id="bills-form-cancel">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="bills-form-submit">Add Item</button>
-          </div>
-        </form>
-      </div>
-    </div>
   `;
 
-  // ── State ───────────────────────────────────────────────────────────────
-  const billsModal = document.getElementById('bills-modal-overlay') as HTMLElement | null;
-  if (billsModal) document.body.appendChild(billsModal);
+  // ── Build modal directly on <body> (never inside container.innerHTML) ──────
+  // This avoids the fragile "inject-then-move" pattern that caused the modal
+  // to sometimes be unreachable when the page-container was mid-animation.
+  const billsModal = document.createElement('div');
+  billsModal.id = 'bills-modal-overlay';
+  billsModal.className = 'modal-overlay hidden';
+  billsModal.style.cssText = 'background:rgba(0,0,0,0.65); z-index:1000;';
+  billsModal.innerHTML = `
+    <div class="glass-card" style="width:min(520px,95vw); max-height:90vh; overflow-y:auto; padding:var(--space-xl); position:relative;">
+      <button id="bills-modal-close" style="position:absolute; top:var(--space-md); right:var(--space-md); background:none; border:none; color:var(--text-primary); font-size:1.5rem; cursor:pointer;">✕</button>
+      <h3 id="modal-title" style="margin-bottom:var(--space-xl);">Add Item</h3>
+      <form id="bills-form" style="display:flex; flex-direction:column; gap:var(--space-lg);">
+        <div>
+          <label style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Type</label>
+          <div style="display:flex; gap:var(--space-sm);">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center;" id="type-bill-label">
+              <input type="radio" name="item_type" value="bill" checked style="display:none;" id="radio-bill" />
+              🧾 Bill to Pay
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center;" id="type-buy-label">
+              <input type="radio" name="item_type" value="to_buy" style="display:none;" id="radio-buy" />
+              🛒 To Buy
+            </label>
+          </div>
+        </div>
+        <div>
+          <label for="bill-name" style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Name *</label>
+          <input type="text" id="bill-name" class="form-input" placeholder="e.g. Electric bill, Netflix…" required />
+        </div>
+        <div>
+          <label for="bill-amount" style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Amount *</label>
+          <input type="number" id="bill-amount" class="form-input" placeholder="0.00" step="0.01" min="0" required />
+        </div>
+        <div>
+          <label for="bill-due" style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Due Date</label>
+          <input type="date" id="bill-due" class="form-input" />
+        </div>
+        <div>
+          <label for="bill-notes" style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Notes</label>
+          <textarea id="bill-notes" class="form-input" rows="2" placeholder="Optional notes…" style="resize:vertical;"></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:var(--space-sm);">
+          <button type="button" class="btn btn-ghost" id="bills-form-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="bills-form-submit">Add Item</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(billsModal);
+
 
   let activeTab: string = 'all';
   let editingId: number | null = null;
