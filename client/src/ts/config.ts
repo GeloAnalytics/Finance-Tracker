@@ -3,9 +3,9 @@
 /**
  * Resolve the API endpoint used by both auth and the data client.
  *
- * VITE_API_ORIGIN is supplied by Render from the backend's
- * RENDER_EXTERNAL_URL. VITE_API_URL remains supported for local/manual
- * deployments and may already include the /api path.
+ * VITE_API_ORIGIN is an optional API origin override for split deployments.
+ * VITE_API_URL remains supported for local/manual deployments and may already
+ * include the /api path. The single-project Vercel deployment uses /api.
  */
 export function getApiBase(): string {
   const configured = (
@@ -13,10 +13,9 @@ export function getApiBase(): string {
   ).trim();
 
   if (!configured) {
-    // A production static host needs the injected Render URL, but local
-    // preview/static servers do not have Vite's /api proxy. Point local
+    // Local preview/static servers do not have Vite's /api proxy. Point local
     // browsers directly at the API so `npm run preview` and Live Server work
-    // the same way as `npm run dev`.
+    // the same way as `npm run dev`; deployed builds use same-origin /api.
     const isLocalBrowser = typeof window !== 'undefined'
       && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
     return isLocalBrowser ? 'http://localhost:3001/api' : '/api';

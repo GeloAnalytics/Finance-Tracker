@@ -25,7 +25,7 @@ FinanceWise is a **single-user** personal finance tracker with an AI financial a
 | Testing | Vitest (client + server), Supertest (server HTTP tests) |
 | Lint/format | ESLint 9 flat config + Prettier |
 | CI | GitHub Actions (`.github/workflows/ci.yml`) |
-| Hosting | Render.com (web service + static site) |
+| Hosting | Vercel (single project with static frontend + serverless API) |
 
 ---
 
@@ -104,7 +104,7 @@ Migration commands: `npm run migrate:up|down|create` (server workspace).
 
 - `POST /api/auth/login` compares the posted password against the bcrypt hash stored for the selected account via `bcrypt.compare`.
 - Registration stores a bcrypt password hash and creates a normal `user` account. On success, the server signs a JWT (`sub`, account role, `JWT_SECRET`, 7-day expiry) and sets it as an **httpOnly cookie** (`fw_token`).
-- Cookie flags: `httpOnly: true` always; `secure: true` in production; `sameSite: 'none'` in production (client/server are on different Render origins) vs `'lax'` in dev; 7-day `maxAge`.
+- Cookie flags: `httpOnly: true` always; `secure: true` in production; `sameSite: 'none'` in production for compatibility with the legacy split-origin Render deployment (same-origin Vercel also accepts it) vs `'lax'` in dev; 7-day `maxAge`.
 - `requireAuth` middleware verifies the JWT on every request and 401s on missing/invalid/expired tokens; it 500s (fails closed) if `JWT_SECRET` isn't configured.
 - Every resource router (`transactions`, `budgets`, `debts`, `savings`, `dashboard`, `categories`, `advisor`) sits behind `requireAuth`. Only `/api/auth/*` and `/api/health` are public.
 - Every protected request re-checks that the account still exists and is active. Admin/support access is separate and requires `role = 'admin'`.
@@ -199,7 +199,7 @@ All routes are under `/api`. Everything except `/api/auth/*` and `/api/health` r
 - **CI** (`.github/workflows/ci.yml`) — on push/PR to `master`/`main`, two parallel jobs on Node 20:
   - `server`: `npm ci` → lint → `tsc --noEmit` → test → build
   - `client`: `npm ci` → lint → test → build
-  - No deploy step; Render deploys independently on push
+  - No deploy step; Vercel deploys independently on push (Render remains available as an alternative)
 
 ---
 
@@ -221,19 +221,21 @@ All routes are under `/api`. Everything except `/api/auth/*` and `/api/health` r
 **Client**
 | Var | Purpose |
 |---|---|
-| `VITE_API_ORIGIN` | Backend origin supplied by Render (`RENDER_EXTERNAL_URL`); the client adds `/api` automatically |
+| `VITE_API_ORIGIN` | Optional API origin override; omit it for the single-project Vercel deployment, where the client uses same-origin `/api` |
 | `VITE_API_URL` | Optional manual API base URL override (may include `/api`); defaults to `/api`, dev-proxied to `localhost:3001` |
 
 ---
 
 ## 10. Deployment
 
-Defined in `render.yaml` — two Render services, no Dockerfile:
+The primary deployment is one Vercel project rooted at the repository root:
 
-- **`financewise-server`** (Node web service, `rootDir: server`) — build: `npm ci --include=dev && npm run build && npm run migrate:up` (migrations run as part of the build); start: `npm start`. Requires `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD_HASH` (never plaintext in prod). `CLIENT_ORIGIN` is wired to the client service URL by the Blueprint.
-- **`financewise-client`** (static site, `rootDir: client`) — build: `npm ci --include=dev && npm run build`, publishes `./dist`; `VITE_API_ORIGIN` is wired to the server service URL by the Blueprint.
+- `client/dist` is the static Vite output.
+- `api/index.ts` mounts the existing Express server as a single Vercel Function, with `/api/*` rewritten into it.
+- `vercel.json` installs both package trees and builds the client; the API uses the same deployment URL, so `VITE_API_ORIGIN` is not required.
+- Set the server-side variables `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH`, and optionally `GEMINI_API_KEY` in the Vercel project. `VERCEL_URL` is used automatically for same-deployment CORS; set `CLIENT_ORIGIN` as well when using a custom domain.
 
-Production database is Supabase-hosted PostgreSQL.
+`render.yaml` remains available as an alternative two-service Render deployment. Production database is Supabase-hosted PostgreSQL.
 
 ---
 

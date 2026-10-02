@@ -30,7 +30,7 @@ export const renderBills = async () => {
         <h2 class="page-title">Bills & Payments</h2>
         <p class="page-subtitle">Track bills to pay and items to buy, separate from your debt tracker.</p>
       </div>
-      <button class="btn btn-primary" id="btn-add-item">+ Add Item</button>
+      <button type="button" class="btn btn-primary" id="btn-add-item">+ Add Item</button>
     </div>
 
     <!-- Summary Stats -->
@@ -61,7 +61,7 @@ export const renderBills = async () => {
     </div>
 
     <!-- Add / Edit Modal -->
-    <div id="bills-modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:1000; align-items:center; justify-content:center;">
+    <div id="bills-modal-overlay" class="modal-overlay hidden" style="background:rgba(0,0,0,0.65); z-index:1000;">
       <div class="glass-card" style="width:min(520px,95vw); max-height:90vh; overflow-y:auto; padding:var(--space-xl); position:relative;">
         <button id="bills-modal-close" style="position:absolute; top:var(--space-md); right:var(--space-md); background:none; border:none; color:var(--text-primary); font-size:1.5rem; cursor:pointer;">✕</button>
         <h3 id="modal-title" style="margin-bottom:var(--space-xl);">Add Item</h3>
@@ -105,7 +105,7 @@ export const renderBills = async () => {
   `;
 
   // ── State ───────────────────────────────────────────────────────────────
-  const billsModal = document.getElementById('bills-modal-overlay');
+  const billsModal = document.getElementById('bills-modal-overlay') as HTMLElement | null;
   if (billsModal) document.body.appendChild(billsModal);
 
   let activeTab: string = 'all';
@@ -114,10 +114,13 @@ export const renderBills = async () => {
 
   // ── Radio button style ───────────────────────────────────────────────────
   const setupRadioStyles = () => {
-    const billLbl = document.getElementById('type-bill-label') as HTMLLabelElement;
-    const buyLbl = document.getElementById('type-buy-label') as HTMLLabelElement;
-    const billRadio = document.getElementById('radio-bill') as HTMLInputElement;
-    const buyRadio = document.getElementById('radio-buy') as HTMLInputElement;
+    if (!billsModal) return;
+    const billLbl = billsModal.querySelector('#type-bill-label') as HTMLLabelElement | null;
+    const buyLbl = billsModal.querySelector('#type-buy-label') as HTMLLabelElement | null;
+    const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement | null;
+    const buyRadio = billsModal.querySelector('#radio-buy') as HTMLInputElement | null;
+
+    if (!billLbl || !buyLbl || !billRadio || !buyRadio) return;
 
     const update = () => {
       billLbl.style.borderColor = billRadio.checked ? 'var(--accent-primary)' : 'var(--border-color)';
@@ -255,15 +258,22 @@ export const renderBills = async () => {
 
   // ── Modal ────────────────────────────────────────────────────────────────
   const openModal = (item?: BillItem) => {
+    if (!billsModal) return;
+
     editingId = item?.id ?? null;
-    const title = document.getElementById('modal-title')!;
-    const nameEl = document.getElementById('bill-name') as HTMLInputElement;
-    const amtEl = document.getElementById('bill-amount') as HTMLInputElement;
-    const dueEl = document.getElementById('bill-due') as HTMLInputElement;
-    const notesEl = document.getElementById('bill-notes') as HTMLTextAreaElement;
-    const billRadio = document.getElementById('radio-bill') as HTMLInputElement;
-    const buyRadio = document.getElementById('radio-buy') as HTMLInputElement;
-    const submitBtn = document.getElementById('bills-form-submit')!;
+    const title = billsModal.querySelector('#modal-title') as HTMLElement | null;
+    const nameEl = billsModal.querySelector('#bill-name') as HTMLInputElement | null;
+    const amtEl = billsModal.querySelector('#bill-amount') as HTMLInputElement | null;
+    const dueEl = billsModal.querySelector('#bill-due') as HTMLInputElement | null;
+    const notesEl = billsModal.querySelector('#bill-notes') as HTMLTextAreaElement | null;
+    const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement | null;
+    const buyRadio = billsModal.querySelector('#radio-buy') as HTMLInputElement | null;
+    const submitBtn = billsModal.querySelector('#bills-form-submit') as HTMLButtonElement | null;
+
+    if (!title || !nameEl || !amtEl || !dueEl || !notesEl || !billRadio || !buyRadio || !submitBtn) {
+      console.error('Bills modal controls are missing');
+      return;
+    }
 
     title.textContent = item ? 'Edit Item' : 'Add Item';
     submitBtn.textContent = item ? 'Save Changes' : 'Add Item';
@@ -284,29 +294,31 @@ export const renderBills = async () => {
     }
 
     setupRadioStyles();
-    (document.getElementById('bills-modal-overlay') as HTMLElement).style.display = 'flex';
+    billsModal.classList.remove('hidden');
     nameEl.focus();
   };
 
   const closeModal = () => {
-    (document.getElementById('bills-modal-overlay') as HTMLElement).style.display = 'none';
+    billsModal?.classList.add('hidden');
     editingId = null;
   };
 
+  // Keep this wired like the other add flows. The modal is moved to <body>
+  // above, but the trigger remains in the freshly-rendered page container.
   document.getElementById('btn-add-item')?.addEventListener('click', () => openModal());
-  document.getElementById('bills-modal-close')?.addEventListener('click', closeModal);
-  document.getElementById('bills-form-cancel')?.addEventListener('click', closeModal);
-  document.getElementById('bills-modal-overlay')?.addEventListener('click', e => {
+  billsModal?.querySelector('#bills-modal-close')?.addEventListener('click', closeModal);
+  billsModal?.querySelector('#bills-form-cancel')?.addEventListener('click', closeModal);
+  billsModal?.addEventListener('click', e => {
     if ((e.target as HTMLElement).id === 'bills-modal-overlay') closeModal();
   });
 
-  document.getElementById('bills-form')?.addEventListener('submit', async (e) => {
+  billsModal?.querySelector('#bills-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const nameEl = document.getElementById('bill-name') as HTMLInputElement;
-    const amtEl = document.getElementById('bill-amount') as HTMLInputElement;
-    const dueEl = document.getElementById('bill-due') as HTMLInputElement;
-    const notesEl = document.getElementById('bill-notes') as HTMLTextAreaElement;
-    const billRadio = document.getElementById('radio-bill') as HTMLInputElement;
+    const nameEl = billsModal.querySelector('#bill-name') as HTMLInputElement;
+    const amtEl = billsModal.querySelector('#bill-amount') as HTMLInputElement;
+    const dueEl = billsModal.querySelector('#bill-due') as HTMLInputElement;
+    const notesEl = billsModal.querySelector('#bill-notes') as HTMLTextAreaElement;
+    const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement;
 
     const data: CreateBillDTO = {
       item_type: billRadio.checked ? 'bill' : 'to_buy',

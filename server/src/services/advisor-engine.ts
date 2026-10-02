@@ -30,7 +30,7 @@ export async function generateAdvisorResponse(userMessage: string, userId?: numb
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-    return `**AI Advisor is not configured.**\n\nTo enable the smart AI advisor, please set the \`GEMINI_API_KEY\` environment variable in your Render dashboard (or local \`.env\` file) with a valid Google Gemini API key.`;
+    return `**AI Advisor is not configured.**\n\nTo enable the smart AI advisor, please set the \`GEMINI_API_KEY\` environment variable in your deployment dashboard (or local \`.env\` file) with a valid Google Gemini API key.`;
   }
 
   try {

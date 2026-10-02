@@ -46,7 +46,11 @@ if (process.env.VERCEL) {
 }
 
 // Middleware
-const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+const vercelOrigin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
+const configuredOrigins = [process.env.CLIENT_ORIGIN, vercelOrigin]
+  .filter(Boolean)
+  .join(',') || 'http://localhost:5173';
+const allowedOrigins = configuredOrigins
   .split(',')
   .map(o => o.trim().replace(/\/+$/, ''))
   .filter(Boolean);
@@ -54,7 +58,7 @@ const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
 const isOriginAllowed = (origin?: string): boolean => {
   if (!origin) return true;
   const cleanOrigin = origin.replace(/\/+$/, '');
-  if (configuredOrigins.includes(cleanOrigin)) return true;
+  if (allowedOrigins.includes(cleanOrigin)) return true;
   if (process.env.NODE_ENV !== 'production') {
     if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) return true;
   }
@@ -156,10 +160,3 @@ app.get('/api/health', async (_req, res) => {
 });
 
 export default app;
-
-// Vercel's automatic Express detector loads this module directly and expects
-// module.exports itself to be the request handler. Keep the normal exports for
-// TypeScript tests and Render, but expose the app directly for Vercel.
-if (process.env.VERCEL) {
-  module.exports = app;
-}
