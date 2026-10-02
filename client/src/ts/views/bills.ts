@@ -134,10 +134,14 @@ export const renderBills = async () => {
     update();
   };
 
-  const billLbl = billsModal.querySelector('#type-bill-label') as HTMLLabelElement;
-  const buyLbl = billsModal.querySelector('#type-buy-label') as HTMLLabelElement;
-  const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement;
-  const buyRadio = billsModal.querySelector('#radio-buy') as HTMLInputElement;
+  const billLbl = billsModal.querySelector('#type-bill-label') as HTMLLabelElement | null;
+  const buyLbl = billsModal.querySelector('#type-buy-label') as HTMLLabelElement | null;
+  const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement | null;
+  const buyRadio = billsModal.querySelector('#radio-buy') as HTMLInputElement | null;
+  if (!billLbl || !buyLbl || !billRadio || !buyRadio) {
+    console.error('Bills modal type controls are missing');
+    return;
+  }
   billLbl.addEventListener('click', () => { billRadio.checked = true; syncRadioStyles(); });
   buyLbl.addEventListener('click', () => { buyRadio.checked = true; syncRadioStyles(); });
   syncRadioStyles();

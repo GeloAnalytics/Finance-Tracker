@@ -7,6 +7,8 @@ let currentPage = '';
 let transitionTimer: ReturnType<typeof setTimeout> | undefined;
 let transitionId = 0;
 
+const getHashPage = () => window.location.hash.slice(1).split('?')[0] || 'dashboard';
+
 export function registerRoute(name: string, render: RenderFunction) {
   routes[name] = render;
 }
@@ -21,8 +23,7 @@ export function getCurrentPage(): string {
 
 export function initRouter() {
   const handleRoute = () => {
-    const hash = window.location.hash.slice(1) || 'dashboard';
-    const page = hash.split('?')[0];
+    const page = getHashPage();
 
     if (routes[page]) {
       const thisTransition = ++transitionId;
@@ -49,16 +50,25 @@ export function initRouter() {
         transitionTimer = setTimeout(async () => {
           // A newer navigation owns the container now. The old render must
           // not recreate a modal or overwrite the newer page.
-          const currentHashPage = window.location.hash.slice(1).split('?')[0] || 'dashboard';
-          if (thisTransition !== transitionId || currentHashPage !== page) return;
+          if (thisTransition !== transitionId || getHashPage() !== page) return;
 
-          await routes[page]();
-          if (thisTransition !== transitionId) return;
-
-          container.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-          container.style.opacity = '1';
-          container.style.transform = 'translateY(0)';
-          container.style.pointerEvents = '';
+          try {
+            await routes[page]();
+          } catch (error) {
+            // A route must not leave the shell permanently hidden if its
+            // render fails. Keep the error visible for debugging while the
+            // transition cleanup below restores the container state.
+            console.error(`Failed to render route: ${page}`, error);
+          } finally {
+            // Only the active transition may reveal the container. An older
+            // async render must never overwrite a newer page's transition.
+            if (thisTransition === transitionId && getHashPage() === page) {
+              container.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+              container.style.opacity = '1';
+              container.style.transform = 'translateY(0)';
+              container.style.pointerEvents = '';
+            }
+          }
         }, 150);
       }
 
