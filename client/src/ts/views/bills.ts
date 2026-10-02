@@ -3,6 +3,8 @@ import { showToast } from '../main.js';
 import { escapeHtml } from '../utils/sanitize.js';
 import type { BillItem, CreateBillDTO } from '../types.js';
 
+let billsRenderId = 0;
+
 const fmt = (n: number) => '₱' + n.toLocaleString('en-US', { minimumFractionDigits: 2 });
 const fmtDate = (s: string | null) => s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
@@ -19,6 +21,7 @@ const isOverdue = (due: string | null) => {
 export const renderBills = async () => {
   const container = document.getElementById('page-container');
   if (!container) return;
+  const renderId = ++billsRenderId;
 
   // Remove any stale modal from a previous visit before re-rendering.
   document.getElementById('bills-modal-overlay')?.remove();
@@ -116,8 +119,7 @@ export const renderBills = async () => {
   let allItems: BillItem[] = [];
 
   // ── Radio button style ───────────────────────────────────────────────────
-  const setupRadioStyles = () => {
-    if (!billsModal) return;
+  const syncRadioStyles = () => {
     const billLbl = billsModal.querySelector('#type-bill-label') as HTMLLabelElement | null;
     const buyLbl = billsModal.querySelector('#type-buy-label') as HTMLLabelElement | null;
     const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement | null;
@@ -129,10 +131,22 @@ export const renderBills = async () => {
       billLbl.style.borderColor = billRadio.checked ? 'var(--accent-primary)' : 'var(--border-color)';
       buyLbl.style.borderColor = buyRadio.checked ? 'var(--accent-primary)' : 'var(--border-color)';
     };
-    billLbl.addEventListener('click', () => { billRadio.checked = true; update(); });
-    buyLbl.addEventListener('click', () => { buyRadio.checked = true; update(); });
     update();
   };
+
+  const billLbl = billsModal.querySelector('#type-bill-label') as HTMLLabelElement;
+  const buyLbl = billsModal.querySelector('#type-buy-label') as HTMLLabelElement;
+  const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement;
+  const buyRadio = billsModal.querySelector('#radio-buy') as HTMLInputElement;
+  billLbl.addEventListener('click', () => { billRadio.checked = true; syncRadioStyles(); });
+  buyLbl.addEventListener('click', () => { buyRadio.checked = true; syncRadioStyles(); });
+  syncRadioStyles();
+
+  // The router removes this modal as soon as navigation starts. Keep late
+  // callbacks and clicks from operating on a detached, stale render.
+  const isActiveView = () =>
+    renderId === billsRenderId &&
+    document.getElementById('bills-modal-overlay') === billsModal;
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
   const setActiveTab = (tab: string) => {
@@ -154,9 +168,13 @@ export const renderBills = async () => {
   const loadAll = async () => {
     try {
       const res = await api.getBills();
+      if (!isActiveView()) return;
       allItems = res.data;
-      (document.getElementById('stat-pending-bills') as HTMLElement).textContent = fmt(res.total_pending_bills);
-      (document.getElementById('stat-pending-buy') as HTMLElement).textContent = fmt(res.total_pending_to_buy);
+      const pendingBills = document.getElementById('stat-pending-bills');
+      const pendingBuy = document.getElementById('stat-pending-buy');
+      if (!pendingBills || !pendingBuy) return;
+      pendingBills.textContent = fmt(res.total_pending_bills);
+      pendingBuy.textContent = fmt(res.total_pending_to_buy);
       renderList();
     } catch {
       showToast('Failed to load bills', 'error');
@@ -164,7 +182,9 @@ export const renderBills = async () => {
   };
 
   const renderList = () => {
-    const list = document.getElementById('bills-list')!;
+    if (!isActiveView()) return;
+    const list = document.getElementById('bills-list');
+    if (!list) return;
     let items = allItems;
     if (activeTab === 'bill') items = allItems.filter(i => i.item_type === 'bill' && i.status === 'pending');
     else if (activeTab === 'to_buy') items = allItems.filter(i => i.item_type === 'to_buy' && i.status === 'pending');
@@ -261,7 +281,7 @@ export const renderBills = async () => {
 
   // ── Modal ────────────────────────────────────────────────────────────────
   const openModal = (item?: BillItem) => {
-    if (!billsModal) return;
+    if (!isActiveView()) return;
 
     editingId = item?.id ?? null;
     const title = billsModal.querySelector('#modal-title') as HTMLElement | null;
@@ -296,18 +316,18 @@ export const renderBills = async () => {
       billRadio.checked = true;
     }
 
-    setupRadioStyles();
+    syncRadioStyles();
     billsModal.classList.remove('hidden');
     nameEl.focus();
   };
 
   const closeModal = () => {
-    billsModal?.classList.add('hidden');
+    billsModal.classList.add('hidden');
     editingId = null;
   };
 
-  // Keep this wired like the other add flows. The modal is moved to <body>
-  // above, but the trigger remains in the freshly-rendered page container.
+  // Keep this wired like the other add flows. The modal is mounted on <body>,
+  // while the trigger remains in the freshly-rendered page container.
   document.getElementById('btn-add-item')?.addEventListener('click', () => openModal());
   billsModal?.querySelector('#bills-modal-close')?.addEventListener('click', closeModal);
   billsModal?.querySelector('#bills-form-cancel')?.addEventListener('click', closeModal);
@@ -317,6 +337,7 @@ export const renderBills = async () => {
 
   billsModal?.querySelector('#bills-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!isActiveView()) return;
     const nameEl = billsModal.querySelector('#bill-name') as HTMLInputElement;
     const amtEl = billsModal.querySelector('#bill-amount') as HTMLInputElement;
     const dueEl = billsModal.querySelector('#bill-due') as HTMLInputElement;
@@ -339,6 +360,7 @@ export const renderBills = async () => {
         await api.createBill(data);
         showToast('Item added!', 'success');
       }
+      if (!isActiveView()) return;
       closeModal();
       loadAll();
     } catch {
