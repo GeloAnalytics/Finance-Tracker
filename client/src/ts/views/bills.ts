@@ -3,8 +3,6 @@ import { showToast } from '../main.js';
 import { escapeHtml } from '../utils/sanitize.js';
 import type { BillItem, CreateBillDTO } from '../types.js';
 
-let billsRenderId = 0;
-
 const fmt = (n: number) => '₱' + n.toLocaleString('en-US', { minimumFractionDigits: 2 });
 const fmtDate = (s: string | null) => s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
@@ -21,8 +19,6 @@ const isOverdue = (due: string | null) => {
 export const renderBills = async () => {
   const container = document.getElementById('page-container');
   if (!container) return;
-  const renderId = ++billsRenderId;
-
   // Remove any stale modal from a previous visit before re-rendering.
   document.getElementById('bills-modal-overlay')?.remove();
 
@@ -146,10 +142,11 @@ export const renderBills = async () => {
   buyLbl.addEventListener('click', () => { buyRadio.checked = true; syncRadioStyles(); });
   syncRadioStyles();
 
-  // The router removes this modal as soon as navigation starts. Keep late
-  // callbacks and clicks from operating on a detached, stale render.
+  // The router removes this modal as soon as navigation starts. Check the
+  // actual mounted element instead of a module-level render counter: a counter
+  // can drift after a route remount and incorrectly reject the live button.
   const isActiveView = () =>
-    renderId === billsRenderId &&
+    billsModal.isConnected &&
     document.getElementById('bills-modal-overlay') === billsModal;
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
@@ -166,7 +163,6 @@ export const renderBills = async () => {
   document.querySelectorAll('.bills-tab').forEach(el => {
     el.addEventListener('click', () => setActiveTab((el as HTMLElement).dataset.tab!));
   });
-  setActiveTab('all');
 
   // ── Load ─────────────────────────────────────────────────────────────────
   const loadAll = async () => {
@@ -372,5 +368,9 @@ export const renderBills = async () => {
     }
   });
 
+  // renderList is declared above; initialize the active tab only after it is
+  // available. Calling setActiveTab earlier throws at runtime and prevents the
+  // Add Item listener (and every subsequent setup step) from being registered.
+  setActiveTab('all');
   loadAll();
 };
