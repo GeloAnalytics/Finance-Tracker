@@ -138,7 +138,7 @@ export const renderBudget = async () => {
       const totalEl = document.getElementById('budget-total')!;
       const overEl = document.getElementById('budget-over')!;
 
-      if (summary) incomeEl.textContent = fmt(summary.monthly_income);
+      if (summary) incomeEl.textContent = fmt(summary.budget_income);
       else incomeEl.textContent = 'N/A';
 
       totalEl.textContent = fmt(data.total_budget ?? 0);
@@ -298,7 +298,7 @@ export const renderBudget = async () => {
   // ── AI Suggest ───────────────────────────────────────────────────────────
   document.getElementById('btn-suggest-budget')?.addEventListener('click', async () => {
     let income = 5000;
-    try { const s = await api.getDashboard(); income = s.monthly_income || 5000; } catch { /* fallback */ }
+    try { const s = await api.getDashboard(); income = s.budget_income || s.monthly_income || 5000; } catch { /* fallback */ }
     try {
       await api.suggestBudgets(income);
       showToast(`Budget suggested based on ${fmt(income)} monthly income`, 'success');

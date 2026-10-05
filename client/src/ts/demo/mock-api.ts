@@ -99,7 +99,7 @@ async function getDashboard(): Promise<DashboardData> {
   const year = now.getFullYear();
 
   let totalIncome = 0, totalExpenses = 0;
-  let monthlyIncome = 0, monthlyExpenses = 0;
+  let monthlyIncome = 0, monthlyExpenses = 0, budgetIncome = 0;
   const byCategory = new Map<number, number>();
   const trendMap: Record<string, { income: number; expenses: number }> = {};
 
@@ -107,6 +107,9 @@ async function getDashboard(): Promise<DashboardData> {
     if (t.type === 'income') totalIncome += t.amount; else totalExpenses += t.amount;
 
     const { month: tMonth, year: tYear } = monthYearOf(t.date);
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    if (t.type === 'income' && new Date(`${t.date}T00:00:00`) >= thirtyDaysAgo) budgetIncome += t.amount;
     if (tMonth === month && tYear === year) {
       if (t.type === 'income') monthlyIncome += t.amount; else monthlyExpenses += t.amount;
       if (t.type === 'expense' && t.category_id !== null) {
@@ -143,14 +146,18 @@ async function getDashboard(): Promise<DashboardData> {
   const activeDebtsTotal = data.debts.filter((d) => d.is_active).reduce((sum, d) => sum + d.current_balance, 0);
   const totalSaved = data.savingsGoals.reduce((sum, g) => sum + g.current_amount, 0);
   const totalTarget = data.savingsGoals.reduce((sum, g) => sum + g.target_amount, 0);
+  const pendingBills = ((data as any).bills ?? []).filter((item: BillItem) => item.item_type === 'bill' && item.status === 'pending');
+  const upcomingBills = [...pendingBills]
+    .sort((a: BillItem, b: BillItem) => (a.due_date ?? '9999-12-31').localeCompare(b.due_date ?? '9999-12-31'))
+    .slice(0, 5);
 
-  const savingsRate = monthlyIncome > 0 ? (monthlyIncome - monthlyExpenses) / monthlyIncome : 0;
-  const debtRatio = monthlyIncome > 0 ? activeDebtsTotal / (monthlyIncome * 12) : 0;
+  const savingsRate = budgetIncome > 0 ? (budgetIncome - monthlyExpenses) / budgetIncome : 0;
+  const debtRatio = budgetIncome > 0 ? activeDebtsTotal / (budgetIncome * 12) : 0;
   let healthScore = 50;
   healthScore += savingsRate > 0.2 ? 20 : savingsRate > 0.1 ? 10 : savingsRate > 0 ? 5 : -10;
   healthScore += debtRatio < 0.3 ? 15 : debtRatio < 0.5 ? 5 : -10;
   healthScore += spendingByCategory.length > 0 ? 5 : 0;
-  healthScore += monthlyIncome > 0 ? 10 : 0;
+  healthScore += budgetIncome > 0 ? 10 : 0;
   healthScore = Math.max(0, Math.min(100, healthScore));
 
   return {
@@ -158,7 +165,11 @@ async function getDashboard(): Promise<DashboardData> {
     total_income: totalIncome,
     total_expenses: totalExpenses,
     monthly_income: monthlyIncome,
+    budget_income: budgetIncome,
     monthly_expenses: monthlyExpenses,
+    pending_bills_total: pendingBills.reduce((sum: number, item: BillItem) => sum + item.amount, 0),
+    pending_bills_count: pendingBills.length,
+    upcoming_bills: upcomingBills,
     health_score: healthScore,
     spending_by_category: spendingByCategory,
     monthly_trend: monthlyTrend,
@@ -691,14 +702,31 @@ export const mockApi = {
     saveDemoData();
     return { message: 'Deleted', id };
   },
-  payOrBuyItem: async (id: number, _createTransaction?: boolean): Promise<{ item: BillItem; transaction: any }> => {
+  payOrBuyItem: async (id: number, createTransaction = true): Promise<{ item: BillItem; transaction: any }> => {
     await delay();
     const store = getDemoData() as any;
     store.bills = store.bills ?? [];
     const idx = store.bills.findIndex((i: BillItem) => i.id === id);
     if (idx === -1) throw new Error('Not found');
+    if (store.bills[idx].status === 'completed') throw new Error('Item has already been completed');
     store.bills[idx].status = 'completed';
+    let transaction: Transaction | null = null;
+    if (createTransaction) {
+      const item = store.bills[idx] as BillItem;
+      const id = store.nextIds.transaction++;
+      const raw = {
+        id,
+        type: 'expense' as const,
+        amount: item.amount,
+        category_id: item.category_id,
+        description: `${item.item_type === 'bill' ? 'Paid Bill' : 'Purchased Item'}: ${item.name}`,
+        date: new Date().toISOString().slice(0, 10),
+        created_at: new Date().toISOString(),
+      };
+      store.transactions.push(raw);
+      transaction = toTransaction(raw);
+    }
     saveDemoData();
-    return { item: store.bills[idx], transaction: null };
+    return { item: store.bills[idx], transaction };
   },
 };

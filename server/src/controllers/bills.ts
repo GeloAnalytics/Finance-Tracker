@@ -171,14 +171,18 @@ export async function payOrBuyItem(req: Request, res: Response) {
     const { id } = req.params;
     const { create_transaction } = req.body;
 
+    // Only a pending item can create a payment transaction.  Besides making
+    // the action idempotent, this prevents a double-click/retry from recording
+    // the same bill twice.
     const itemRes = await pool.query(
       `UPDATE bills_and_items SET status = 'completed', updated_at = NOW()
-       WHERE id = $1 AND user_id = $2 RETURNING *`,
+       WHERE id = $1 AND user_id = $2 AND status = 'pending' RETURNING *`,
       [id, userId]
     );
 
     if (itemRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Item not found' });
+      const existing = await pool.query('SELECT status FROM bills_and_items WHERE id = $1 AND user_id = $2', [id, userId]);
+      return res.status(existing.rows.length ? 409 : 404).json({ error: existing.rows.length ? 'Item has already been completed' : 'Item not found' });
     }
 
     const item = itemRes.rows[0];

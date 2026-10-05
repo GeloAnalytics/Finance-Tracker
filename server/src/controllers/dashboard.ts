@@ -38,6 +38,18 @@ export async function getDashboardSummary(req: Request, res: Response) {
       if (r.type === 'expense') monthlyExpenses = parseFloat(r.total);
     });
 
+    // A calendar month is useful for reporting, but it is not always the
+    // money available for the next budget.  For example, a salary received on
+    // September 30 is commonly used to fund October.  Keep this separate from
+    // `monthly_income` so neither view is misleading.
+    const rollingIncome = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM transactions
+      WHERE type = 'income' AND date >= CURRENT_DATE - INTERVAL '30 days'
+        AND ${uClause}
+    `, uParams);
+    const budgetIncome = parseFloat(rollingIncome.rows[0].total);
+
     // Spending by category (this month)
     const uClauseByCat = userId ? 'AND t.user_id = $3' : '';
     const byCat = await pool.query(`
@@ -77,14 +89,33 @@ export async function getDashboardSummary(req: Request, res: Response) {
     // Savings progress
     const savingsTotal = await pool.query(`SELECT COALESCE(SUM(current_amount), 0) as saved, COALESCE(SUM(target_amount), 0) as target FROM savings_goals WHERE ${uClause}`, uParams);
 
+    // Pending bills are commitments, not expenses yet.  Surface them beside
+    // cash activity without adding them to balances or expense totals (which
+    // would double-count them once paid).
+    const pendingBills = await pool.query(`
+      SELECT b.id, b.name, b.amount, b.due_date, c.name AS category_name, c.icon AS category_icon
+      FROM bills_and_items b
+      LEFT JOIN categories c ON c.id = b.category_id
+      WHERE b.status = 'pending' AND b.item_type = 'bill' AND ${userId ? 'b.user_id = $1' : '1=1'}
+      ORDER BY b.due_date ASC NULLS LAST, b.created_at ASC
+      LIMIT 5
+    `, uParams);
+    const pendingBillsTotal = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*)::int AS count
+      FROM bills_and_items
+      WHERE status = 'pending' AND item_type = 'bill' AND ${uClause}
+    `, uParams);
+
     // Financial health score (0-100)
-    const savingsRate = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) : 0;
-    const debtRatio = monthlyIncome > 0 ? (parseFloat(debtTotal.rows[0].total) / (monthlyIncome * 12)) : 0;
+    // Health should use the same income window as budgeting; otherwise a
+    // month-end payday makes the score look worse on the first day of a month.
+    const savingsRate = budgetIncome > 0 ? ((budgetIncome - monthlyExpenses) / budgetIncome) : 0;
+    const debtRatio = budgetIncome > 0 ? (parseFloat(debtTotal.rows[0].total) / (budgetIncome * 12)) : 0;
     let healthScore = 50;
     healthScore += savingsRate > 0.2 ? 20 : savingsRate > 0.1 ? 10 : savingsRate > 0 ? 5 : -10;
     healthScore += debtRatio < 0.3 ? 15 : debtRatio < 0.5 ? 5 : -10;
     healthScore += spendingByCategory.length > 0 ? 5 : 0; // tracking expenses = good
-    healthScore += monthlyIncome > 0 ? 10 : 0;
+    healthScore += budgetIncome > 0 ? 10 : 0;
     healthScore = Math.max(0, Math.min(100, healthScore));
 
     res.json({
@@ -92,7 +123,11 @@ export async function getDashboardSummary(req: Request, res: Response) {
       total_income: totalIncome,
       total_expenses: totalExpenses,
       monthly_income: monthlyIncome,
+      budget_income: budgetIncome,
       monthly_expenses: monthlyExpenses,
+      pending_bills_total: parseFloat(pendingBillsTotal.rows[0].total),
+      pending_bills_count: pendingBillsTotal.rows[0].count,
+      upcoming_bills: pendingBills.rows.map((bill: any) => ({ ...bill, amount: parseFloat(bill.amount) })),
       health_score: healthScore,
       spending_by_category: spendingByCategory,
       monthly_trend: monthlyTrend,

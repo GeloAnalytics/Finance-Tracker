@@ -57,7 +57,12 @@ export interface DashboardData {
   total_income: number;
   total_expenses: number;
   monthly_income: number;
+  /** Income received during the trailing 30 days; appropriate for funding the next budget period. */
+  budget_income: number;
   monthly_expenses: number;
+  pending_bills_total: number;
+  pending_bills_count: number;
+  upcoming_bills: { id: number; name: string; amount: number; due_date: string | null; category_name?: string; category_icon?: string }[];
   health_score: number;
   spending_by_category: { name: string; icon: string; amount: number; color: string }[];
   monthly_trend: { month: string; income: number; expenses: number }[];

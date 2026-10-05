@@ -33,6 +33,7 @@ export const renderDashboard = async () => {
         <div class="stat-label">Monthly Income</div>
         <div class="stat-value">...</div>
       </div>
+      <div class="glass-card stat-card income"><div class="stat-icon">ALL</div><div class="stat-label">Overall Income</div><div class="stat-value">...</div></div>
       <div class="glass-card stat-card expense">
         <div class="stat-icon">📉</div>
         <div class="stat-label">Monthly Expenses</div>
@@ -43,6 +44,8 @@ export const renderDashboard = async () => {
         <div class="stat-label">Total Debt</div>
         <div class="stat-value">...</div>
       </div>
+      <div class="glass-card stat-card income"><div class="stat-icon">30D</div><div class="stat-label">Income Available to Budget</div><div class="stat-value">...</div></div>
+      <div class="glass-card stat-card expense"><div class="stat-icon">BILL</div><div class="stat-label">Bills Still to Pay</div><div class="stat-value">...</div></div>
     </div>
     
     <div class="charts-grid animate-in stagger-3">
@@ -65,6 +68,10 @@ export const renderDashboard = async () => {
       </div>
     </div>
     
+    <div class="glass-card animate-in stagger-4" style="margin-bottom:var(--space-lg);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-md);"><h3>Upcoming Bills</h3><a href="#bills" class="btn btn-ghost btn-sm">View Bills</a></div>
+      <div id="dashboard-upcoming-bills" class="empty-state">Loading...</div>
+    </div>
     <div class="glass-card animate-in stagger-4">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md);">
         <h3>Recent Transactions</h3>
@@ -102,7 +109,9 @@ export const renderDashboard = async () => {
         <div class="stat-icon">📈</div>
         <div class="stat-label">Monthly Income</div>
         <div class="stat-value">₱${fmt(summary.monthly_income)}</div>
+        <div class="stat-label">This calendar month</div>
       </div>
+      <div class="glass-card stat-card income"><div class="stat-icon">ALL</div><div class="stat-label">Overall Income</div><div class="stat-value">₱${fmt(summary.total_income)}</div><div class="stat-label">All recorded income</div></div>
       <div class="glass-card stat-card expense">
         <div class="stat-icon">📉</div>
         <div class="stat-label">Monthly Expenses</div>
@@ -113,9 +122,18 @@ export const renderDashboard = async () => {
         <div class="stat-label">Total Debt</div>
         <div class="stat-value">₱${fmt(summary.active_debts_total)}</div>
       </div>
+      <div class="glass-card stat-card income"><div class="stat-icon">30D</div><div class="stat-label">Income Available to Budget</div><div class="stat-value">₱${fmt(summary.budget_income)}</div><div class="stat-label">Received in the last 30 days</div></div>
+      <div class="glass-card stat-card expense"><div class="stat-icon">BILL</div><div class="stat-label">Bills Still to Pay</div><div class="stat-value">₱${fmt(summary.pending_bills_total)}</div><div class="stat-label">${summary.pending_bills_count} pending</div></div>
     `;
     const statsContainer = document.getElementById('dashboard-stats');
     if (statsContainer) statsContainer.innerHTML = statsHtml;
+
+    const billsContainer = document.getElementById('dashboard-upcoming-bills');
+    if (billsContainer) {
+      billsContainer.innerHTML = summary.upcoming_bills.length
+        ? summary.upcoming_bills.map(bill => `<div style="display:flex;justify-content:space-between;gap:var(--space-md);padding:var(--space-sm) 0;border-bottom:1px solid var(--border-color);"><span>${escapeHtml(bill.category_icon ?? 'Bill')} ${escapeHtml(bill.name)} <span style="color:var(--text-muted)">${bill.due_date ? `Due ${new Date(`${bill.due_date}T00:00:00`).toLocaleDateString()}` : 'No due date'}</span></span><strong>₱${fmt(bill.amount)}</strong></div>`).join('')
+        : 'No pending bills. You are all caught up.';
+    }
 
     // Update Recent Transactions
     const txContainer = document.getElementById('dashboard-recent-tx');
