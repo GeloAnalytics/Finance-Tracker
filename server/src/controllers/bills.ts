@@ -107,7 +107,10 @@ export async function updateBill(req: Request, res: Response) {
     const { id } = req.params;
     const { name, amount, due_date, category_id, status, notes } = req.body;
 
-    const userClause = userId ? 'AND user_id = $7' : '';
+    // `$7` is the item id. When the request is authenticated the user id is
+    // appended as the eighth parameter, so the ownership check must reference
+    // `$8`. Using `$7` both rejected valid edits and left an unused bind value.
+    const userClause = userId ? 'AND user_id = $8' : '';
     const params = [name, amount, due_date, category_id, status, notes, id];
     if (userId) params.push(userId as any);
 

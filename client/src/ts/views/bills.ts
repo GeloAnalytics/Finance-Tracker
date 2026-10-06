@@ -74,11 +74,11 @@ export const renderBills = async () => {
         <div>
           <label style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Type</label>
           <div style="display:flex; gap:var(--space-sm);">
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center;" id="type-bill-label">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center; transition:background-color .15s, border-color .15s, color .15s;" id="type-bill-label">
               <input type="radio" name="item_type" value="bill" checked style="display:none;" id="radio-bill" />
               🧾 Bill to Pay
             </label>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center;" id="type-buy-label">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center; transition:background-color .15s, border-color .15s, color .15s;" id="type-buy-label">
               <input type="radio" name="item_type" value="to_buy" style="display:none;" id="radio-buy" />
               🛒 To Buy
             </label>
@@ -124,8 +124,17 @@ export const renderBills = async () => {
     if (!billLbl || !buyLbl || !billRadio || !buyRadio) return;
 
     const update = () => {
-      billLbl.style.borderColor = billRadio.checked ? 'var(--accent-primary)' : 'var(--border-color)';
-      buyLbl.style.borderColor = buyRadio.checked ? 'var(--accent-primary)' : 'var(--border-color)';
+      const setSelectedStyle = (label: HTMLLabelElement, selected: boolean) => {
+        label.style.borderColor = selected ? 'var(--accent-primary)' : 'var(--border-color)';
+        label.style.backgroundColor = selected ? 'var(--accent-primary)' : 'transparent';
+        label.style.color = selected ? '#fff' : 'var(--text-primary)';
+        label.style.fontWeight = selected ? '700' : '400';
+        label.style.boxShadow = selected ? '0 0 0 2px color-mix(in srgb, var(--accent-primary) 30%, transparent)' : 'none';
+        label.setAttribute('aria-checked', String(selected));
+      };
+
+      setSelectedStyle(billLbl, billRadio.checked);
+      setSelectedStyle(buyLbl, buyRadio.checked);
     };
     update();
   };
@@ -140,6 +149,8 @@ export const renderBills = async () => {
   }
   billLbl.addEventListener('click', () => { billRadio.checked = true; syncRadioStyles(); });
   buyLbl.addEventListener('click', () => { buyRadio.checked = true; syncRadioStyles(); });
+  billRadio.addEventListener('change', syncRadioStyles);
+  buyRadio.addEventListener('change', syncRadioStyles);
   syncRadioStyles();
 
   // The router removes this modal as soon as navigation starts. Check the
