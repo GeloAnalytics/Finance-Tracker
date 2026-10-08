@@ -85,6 +85,19 @@ export const renderBills = async () => {
           </div>
         </div>
         <div>
+          <label style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Status</label>
+          <div style="display:flex; gap:var(--space-sm);">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center; transition:background-color .15s, border-color .15s, color .15s;" id="status-pending-label">
+              <input type="radio" name="item_status" value="pending" checked style="display:none;" id="radio-pending" />
+              ⏳ Pending
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; padding:8px 16px; border-radius:var(--radius-sm); border:2px solid var(--border-color); flex:1; justify-content:center; transition:background-color .15s, border-color .15s, color .15s;" id="status-completed-label">
+              <input type="radio" name="item_status" value="completed" style="display:none;" id="radio-completed" />
+              ✅ Completed
+            </label>
+          </div>
+        </div>
+        <div>
           <label for="bill-name" style="font-size:var(--font-sm); color:var(--text-muted); margin-bottom:4px; display:block;">Name *</label>
           <input type="text" id="bill-name" class="form-input" placeholder="e.g. Electric bill, Netflix…" required />
         </div>
@@ -114,43 +127,59 @@ export const renderBills = async () => {
   let editingId: number | null = null;
   let allItems: BillItem[] = [];
 
-  // ── Radio button style ───────────────────────────────────────────────────
+  // ── Radio button styles ──────────────────────────────────────────────────
   const syncRadioStyles = () => {
     const billLbl = billsModal.querySelector('#type-bill-label') as HTMLLabelElement | null;
     const buyLbl = billsModal.querySelector('#type-buy-label') as HTMLLabelElement | null;
     const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement | null;
     const buyRadio = billsModal.querySelector('#radio-buy') as HTMLInputElement | null;
+    const pendingLbl = billsModal.querySelector('#status-pending-label') as HTMLLabelElement | null;
+    const completedLbl = billsModal.querySelector('#status-completed-label') as HTMLLabelElement | null;
+    const pendingRadio = billsModal.querySelector('#radio-pending') as HTMLInputElement | null;
+    const completedRadio = billsModal.querySelector('#radio-completed') as HTMLInputElement | null;
 
-    if (!billLbl || !buyLbl || !billRadio || !buyRadio) return;
+    const setSelectedStyle = (label: HTMLLabelElement, selected: boolean) => {
+      label.style.borderColor = selected ? 'var(--accent-primary)' : 'var(--border-color)';
+      label.style.backgroundColor = selected ? 'var(--accent-primary)' : 'transparent';
+      label.style.color = selected ? '#fff' : 'var(--text-primary)';
+      label.style.fontWeight = selected ? '700' : '400';
+      label.style.boxShadow = selected ? '0 0 0 2px color-mix(in srgb, var(--accent-primary) 30%, transparent)' : 'none';
+      label.setAttribute('aria-checked', String(selected));
+    };
 
-    const update = () => {
-      const setSelectedStyle = (label: HTMLLabelElement, selected: boolean) => {
-        label.style.borderColor = selected ? 'var(--accent-primary)' : 'var(--border-color)';
-        label.style.backgroundColor = selected ? 'var(--accent-primary)' : 'transparent';
-        label.style.color = selected ? '#fff' : 'var(--text-primary)';
-        label.style.fontWeight = selected ? '700' : '400';
-        label.style.boxShadow = selected ? '0 0 0 2px color-mix(in srgb, var(--accent-primary) 30%, transparent)' : 'none';
-        label.setAttribute('aria-checked', String(selected));
-      };
-
+    if (billLbl && buyLbl && billRadio && buyRadio) {
       setSelectedStyle(billLbl, billRadio.checked);
       setSelectedStyle(buyLbl, buyRadio.checked);
-    };
-    update();
+    }
+    if (pendingLbl && completedLbl && pendingRadio && completedRadio) {
+      setSelectedStyle(pendingLbl, pendingRadio.checked);
+      setSelectedStyle(completedLbl, completedRadio.checked);
+    }
   };
 
   const billLbl = billsModal.querySelector('#type-bill-label') as HTMLLabelElement | null;
   const buyLbl = billsModal.querySelector('#type-buy-label') as HTMLLabelElement | null;
   const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement | null;
   const buyRadio = billsModal.querySelector('#radio-buy') as HTMLInputElement | null;
-  if (!billLbl || !buyLbl || !billRadio || !buyRadio) {
-    console.error('Bills modal type controls are missing');
+  const pendingLbl = billsModal.querySelector('#status-pending-label') as HTMLLabelElement | null;
+  const completedLbl = billsModal.querySelector('#status-completed-label') as HTMLLabelElement | null;
+  const pendingRadio = billsModal.querySelector('#radio-pending') as HTMLInputElement | null;
+  const completedRadio = billsModal.querySelector('#radio-completed') as HTMLInputElement | null;
+
+  if (!billLbl || !buyLbl || !billRadio || !buyRadio || !pendingLbl || !completedLbl || !pendingRadio || !completedRadio) {
+    console.error('Bills modal controls are missing');
     return;
   }
+
   billLbl.addEventListener('click', () => { billRadio.checked = true; syncRadioStyles(); });
   buyLbl.addEventListener('click', () => { buyRadio.checked = true; syncRadioStyles(); });
   billRadio.addEventListener('change', syncRadioStyles);
   buyRadio.addEventListener('change', syncRadioStyles);
+
+  pendingLbl.addEventListener('click', () => { pendingRadio.checked = true; syncRadioStyles(); });
+  completedLbl.addEventListener('click', () => { completedRadio.checked = true; syncRadioStyles(); });
+  pendingRadio.addEventListener('change', syncRadioStyles);
+  completedRadio.addEventListener('change', syncRadioStyles);
   syncRadioStyles();
 
   // The router removes this modal as soon as navigation starts. Check the
@@ -216,25 +245,36 @@ export const renderBills = async () => {
       const dueBadge = overdue
         ? `<span style="background:var(--expense-color); color:#fff; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; font-weight:700;">OVERDUE</span>`
         : soon ? `<span style="background:#f59e0b; color:#000; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; font-weight:700;">DUE SOON</span>` : '';
+      const statusBadge = completed
+        ? `<span style="background:var(--income-color); color:#fff; padding:2px 8px; border-radius:var(--radius-full); font-size:11px; font-weight:700;">COMPLETED</span>`
+        : '';
 
       return `
         <div class="bill-item ${completed ? 'completed' : ''}" data-id="${item.id}" style="
           display:flex; align-items:flex-start; gap:var(--space-md); padding:var(--space-md) var(--space-lg);
-          border-radius:var(--radius-md); border:1px solid ${overdue ? 'var(--expense-color)' : soon ? '#f59e0b' : 'var(--border-color)'};
-          background:var(--bg-secondary); opacity:${completed ? 0.6 : 1}; transition:opacity 0.2s;
+          border-radius:var(--radius-md); border:1px solid ${completed ? 'var(--border-color)' : overdue ? 'var(--expense-color)' : soon ? '#f59e0b' : 'var(--border-color)'};
+          background:var(--bg-secondary); opacity:${completed ? 0.85 : 1}; transition:all 0.2s ease;
         ">
-          <!-- Check circle -->
-          ${!completed ? `<button class="btn-check" data-id="${item.id}" title="Mark as ${item.item_type === 'bill' ? 'paid' : 'bought'}"
-            style="width:28px; height:28px; border-radius:50%; border:2px solid ${typeColor}; background:none; cursor:pointer; flex-shrink:0; margin-top:2px; transition:background 0.2s; color:${typeColor}; font-size:14px; display:flex; align-items:center; justify-content:center;">
-            ○
-          </button>` : `<span style="width:28px; height:28px; border-radius:50%; background:var(--income-color); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:14px; margin-top:2px;">✓</span>`}
+          <!-- Check / Uncheck circle -->
+          ${!completed ? `
+            <button class="btn-check" data-id="${item.id}" title="Mark as ${item.item_type === 'bill' ? 'paid' : 'bought'}"
+              style="width:28px; height:28px; border-radius:50%; border:2px solid ${typeColor}; background:none; cursor:pointer; flex-shrink:0; margin-top:2px; transition:background 0.2s, transform 0.15s; color:${typeColor}; font-size:14px; display:flex; align-items:center; justify-content:center;">
+              ○
+            </button>
+          ` : `
+            <button class="btn-uncheck" data-id="${item.id}" title="Click to mark as pending / reopen"
+              style="width:28px; height:28px; border-radius:50%; background:var(--income-color); border:2px solid var(--income-color); color:#fff; cursor:pointer; flex-shrink:0; margin-top:2px; font-size:14px; display:flex; align-items:center; justify-content:center; transition:opacity 0.2s, transform 0.15s;">
+              ✓
+            </button>
+          `}
 
           <!-- Info -->
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:var(--space-sm); flex-wrap:wrap; margin-bottom:4px;">
-              <span style="font-weight:600; font-size:var(--font-base);">${escapeHtml(item.name)}</span>
+              <span style="font-weight:600; font-size:var(--font-base); ${completed ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${escapeHtml(item.name)}</span>
               <span style="color:${typeColor}; font-size:var(--font-xs); font-weight:600;">${typeLabel}</span>
               ${dueBadge}
+              ${statusBadge}
             </div>
             <div style="display:flex; gap:var(--space-md); flex-wrap:wrap; font-size:var(--font-sm); color:var(--text-muted);">
               <span>📅 ${fmtDate(item.due_date)}</span>
@@ -244,13 +284,12 @@ export const renderBills = async () => {
 
           <!-- Amount & Actions -->
           <div style="text-align:right; flex-shrink:0;">
-            <div style="font-weight:700; font-size:var(--font-lg); color:${typeColor};">${fmt(item.amount)}</div>
-            ${!completed ? `
-              <div style="display:flex; gap:6px; margin-top:6px; justify-content:flex-end;">
-                <button class="btn-edit btn btn-ghost btn-sm" data-id="${item.id}" title="Edit">✏️</button>
-                <button class="btn-delete btn btn-ghost btn-sm" data-id="${item.id}" title="Delete" style="color:var(--expense-color);">🗑️</button>
-              </div>` : `
-              <div style="font-size:var(--font-xs); color:var(--income-color); margin-top:4px;">✓ Done</div>`}
+            <div style="font-weight:700; font-size:var(--font-lg); color:${completed ? 'var(--text-muted)' : typeColor};">${fmt(item.amount)}</div>
+            <div style="display:flex; gap:6px; margin-top:6px; justify-content:flex-end; align-items:center;">
+              ${completed ? `<span style="font-size:var(--font-xs); color:var(--income-color); margin-right:4px;">Done</span>` : ''}
+              <button class="btn-edit btn btn-ghost btn-sm" data-id="${item.id}" title="Edit item">✏️</button>
+              <button class="btn-delete btn btn-ghost btn-sm" data-id="${item.id}" title="Delete item" style="color:var(--expense-color);">🗑️</button>
+            </div>
           </div>
         </div>
       `;
@@ -265,6 +304,17 @@ export const renderBills = async () => {
           showToast('Marked as done!', 'success');
           loadAll();
         } catch { showToast('Failed to update', 'error'); }
+      });
+    });
+
+    list.querySelectorAll('.btn-uncheck').forEach(el => {
+      el.addEventListener('click', async () => {
+        const id = Number((el as HTMLElement).dataset.id);
+        try {
+          await api.updateBill(id, { status: 'pending' });
+          showToast('Marked as pending!', 'info');
+          loadAll();
+        } catch { showToast('Failed to reopen item', 'error'); }
       });
     });
 
@@ -302,9 +352,11 @@ export const renderBills = async () => {
     const notesEl = billsModal.querySelector('#bill-notes') as HTMLTextAreaElement | null;
     const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement | null;
     const buyRadio = billsModal.querySelector('#radio-buy') as HTMLInputElement | null;
+    const pendingRadio = billsModal.querySelector('#radio-pending') as HTMLInputElement | null;
+    const completedRadio = billsModal.querySelector('#radio-completed') as HTMLInputElement | null;
     const submitBtn = billsModal.querySelector('#bills-form-submit') as HTMLButtonElement | null;
 
-    if (!title || !nameEl || !amtEl || !dueEl || !notesEl || !billRadio || !buyRadio || !submitBtn) {
+    if (!title || !nameEl || !amtEl || !dueEl || !notesEl || !billRadio || !buyRadio || !pendingRadio || !completedRadio || !submitBtn) {
       console.error('Bills modal controls are missing');
       return;
     }
@@ -319,12 +371,15 @@ export const renderBills = async () => {
       notesEl.value = item.notes ?? '';
       if (item.item_type === 'to_buy') buyRadio.checked = true;
       else billRadio.checked = true;
+      if (item.status === 'completed') completedRadio.checked = true;
+      else pendingRadio.checked = true;
     } else {
       nameEl.value = '';
       amtEl.value = '';
       dueEl.value = '';
       notesEl.value = '';
       billRadio.checked = true;
+      pendingRadio.checked = true;
     }
 
     syncRadioStyles();
@@ -354,6 +409,7 @@ export const renderBills = async () => {
     const dueEl = billsModal.querySelector('#bill-due') as HTMLInputElement;
     const notesEl = billsModal.querySelector('#bill-notes') as HTMLTextAreaElement;
     const billRadio = billsModal.querySelector('#radio-bill') as HTMLInputElement;
+    const completedRadio = billsModal.querySelector('#radio-completed') as HTMLInputElement;
 
     const data: CreateBillDTO = {
       item_type: billRadio.checked ? 'bill' : 'to_buy',
@@ -362,10 +418,18 @@ export const renderBills = async () => {
       due_date: dueEl.value || null,
       notes: notesEl.value.trim() || undefined,
     };
+    const status: 'pending' | 'completed' = completedRadio.checked ? 'completed' : 'pending';
 
     try {
       if (editingId !== null) {
-        await api.updateBill(editingId, { name: data.name, amount: data.amount, due_date: data.due_date, notes: data.notes });
+        await api.updateBill(editingId, {
+          item_type: data.item_type,
+          name: data.name,
+          amount: data.amount,
+          due_date: data.due_date,
+          notes: data.notes,
+          status: status,
+        });
         showToast('Item updated!', 'success');
       } else {
         await api.createBill(data);

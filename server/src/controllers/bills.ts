@@ -105,13 +105,14 @@ export async function updateBill(req: Request, res: Response) {
   try {
     const userId = req.user?.id;
     const { id } = req.params;
-    const { name, amount, due_date, category_id, status, notes } = req.body;
+    const { item_type, name, amount, due_date, category_id, status, notes } = req.body;
 
     // Dynamic SET clause so partial updates work and nullable fields (due_date, notes) can be cleared
     const setClauses: string[] = ['updated_at = NOW()'];
     const params: any[] = [];
     let idx = 1;
 
+    if (item_type !== undefined) { setClauses.push(`item_type = $${idx++}`); params.push(item_type); }
     if (name !== undefined) { setClauses.push(`name = $${idx++}`); params.push(name); }
     if (amount !== undefined) { setClauses.push(`amount = $${idx++}`); params.push(amount); }
     if (due_date !== undefined) { setClauses.push(`due_date = $${idx++}`); params.push(due_date ?? null); }

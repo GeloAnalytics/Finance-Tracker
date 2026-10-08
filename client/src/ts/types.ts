@@ -160,7 +160,7 @@ export interface CreateBillDTO {
   notes?: string;
 }
 
-export type UpdateBillDTO = Partial<Omit<CreateBillDTO, 'item_type'>> & { status?: 'pending' | 'completed' };
+export type UpdateBillDTO = Partial<CreateBillDTO> & { status?: 'pending' | 'completed' };
 
 export interface PayoffPlan {
   method: 'snowball' | 'avalanche';

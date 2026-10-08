@@ -106,6 +106,7 @@ export const createBillSchema = z.object({
 });
 
 export const updateBillSchema = z.object({
+  item_type: z.enum(['bill', 'to_buy']).optional(),
   name: z.string().trim().min(1).max(150).optional(),
   amount: nonNegativeAmount.optional(),
   due_date: dateOnly.nullable().optional(),
