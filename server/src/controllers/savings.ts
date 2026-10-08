@@ -49,16 +49,24 @@ export async function updateSavingsGoal(req: Request, res: Response) {
     const { id } = req.params;
     const { name, target_amount, current_amount, deadline, icon, is_completed } = req.body;
 
-    const userClause = userId ? 'AND user_id = $7' : '';
-    const params = [name, target_amount, current_amount, deadline, icon, is_completed, id];
-    if (userId) params.push(userId as any);
+    // Build dynamic update to avoid COALESCE preventing deadline from being cleared to NULL
+    const setClauses: string[] = ['updated_at = NOW()'];
+    const params: any[] = [];
+    let idx = 1;
+
+    if (name !== undefined) { setClauses.push(`name = $${idx++}`); params.push(name); }
+    if (target_amount !== undefined) { setClauses.push(`target_amount = $${idx++}`); params.push(target_amount); }
+    if (current_amount !== undefined) { setClauses.push(`current_amount = $${idx++}`); params.push(current_amount); }
+    if (deadline !== undefined) { setClauses.push(`deadline = $${idx++}`); params.push(deadline ?? null); }
+    if (icon !== undefined) { setClauses.push(`icon = $${idx++}`); params.push(icon); }
+    if (is_completed !== undefined) { setClauses.push(`is_completed = $${idx++}`); params.push(is_completed); }
+
+    params.push(id);
+    const whereClause = userId ? `AND user_id = $${idx + 1}` : '';
+    if (userId) params.push(userId);
 
     const result = await pool.query(
-      `UPDATE savings_goals SET
-        name = COALESCE($1, name), target_amount = COALESCE($2, target_amount),
-        current_amount = COALESCE($3, current_amount), deadline = COALESCE($4, deadline),
-        icon = COALESCE($5, icon), is_completed = COALESCE($6, is_completed), updated_at = NOW()
-       WHERE id = $7 ${userClause} RETURNING *`,
+      `UPDATE savings_goals SET ${setClauses.join(', ')} WHERE id = $${idx} ${whereClause} RETURNING *`,
       params
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Savings goal not found' });

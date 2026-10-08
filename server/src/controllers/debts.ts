@@ -60,21 +60,25 @@ export async function updateDebt(req: Request, res: Response) {
     const { id } = req.params;
     const { name, total_amount, current_balance, interest_rate, minimum_payment, due_date, is_active } = req.body;
 
-    const userClause = userId ? 'AND user_id = $8' : '';
-    const params = [name, total_amount, current_balance, interest_rate, minimum_payment, due_date, is_active, id];
-    if (userId) params.push(userId as any);
+    // Dynamic SET clause so partial updates work and nullable fields (due_date) can be cleared
+    const setClauses: string[] = ['updated_at = NOW()'];
+    const params: any[] = [];
+    let idx = 1;
+
+    if (name !== undefined) { setClauses.push(`name = $${idx++}`); params.push(name); }
+    if (total_amount !== undefined) { setClauses.push(`total_amount = $${idx++}`); params.push(total_amount); }
+    if (current_balance !== undefined) { setClauses.push(`current_balance = $${idx++}`); params.push(current_balance); }
+    if (interest_rate !== undefined) { setClauses.push(`interest_rate = $${idx++}`); params.push(interest_rate); }
+    if (minimum_payment !== undefined) { setClauses.push(`minimum_payment = $${idx++}`); params.push(minimum_payment); }
+    if (due_date !== undefined) { setClauses.push(`due_date = $${idx++}`); params.push(due_date ?? null); }
+    if (is_active !== undefined) { setClauses.push(`is_active = $${idx++}`); params.push(is_active); }
+
+    params.push(id);
+    const whereClause = userId ? `AND user_id = $${idx + 1}` : '';
+    if (userId) params.push(userId);
 
     const result = await pool.query(
-      `UPDATE debts SET
-        name = COALESCE($1, name),
-        total_amount = COALESCE($2, total_amount),
-        current_balance = COALESCE($3, current_balance),
-        interest_rate = COALESCE($4, interest_rate),
-        minimum_payment = COALESCE($5, minimum_payment),
-        due_date = COALESCE($6, due_date),
-        is_active = COALESCE($7, is_active),
-        updated_at = NOW()
-       WHERE id = $8 ${userClause} RETURNING *`,
+      `UPDATE debts SET ${setClauses.join(', ')} WHERE id = $${idx} ${whereClause} RETURNING *`,
       params
     );
 

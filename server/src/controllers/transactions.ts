@@ -114,19 +114,23 @@ export async function updateTransaction(req: Request, res: Response) {
     const { id } = req.params;
     const { type, amount, category_id, description, date } = req.body;
 
-    const userClause = userId ? 'AND user_id = $7' : '';
-    const params = [type, amount, category_id, description, date, id];
-    if (userId) params.push(userId as any);
+    // Dynamic SET clause so partial updates work and null values can be set explicitly
+    const setClauses: string[] = ['updated_at = NOW()'];
+    const params: any[] = [];
+    let idx = 1;
+
+    if (type !== undefined) { setClauses.push(`type = $${idx++}`); params.push(type); }
+    if (amount !== undefined) { setClauses.push(`amount = $${idx++}`); params.push(amount); }
+    if (category_id !== undefined) { setClauses.push(`category_id = $${idx++}`); params.push(category_id ?? null); }
+    if (description !== undefined) { setClauses.push(`description = $${idx++}`); params.push(description ?? null); }
+    if (date !== undefined) { setClauses.push(`date = $${idx++}`); params.push(date); }
+
+    params.push(id);
+    const whereClause = userId ? `AND user_id = $${idx + 1}` : '';
+    if (userId) params.push(userId);
 
     const result = await pool.query(
-      `UPDATE transactions SET 
-        type = COALESCE($1, type),
-        amount = COALESCE($2, amount),
-        category_id = COALESCE($3, category_id),
-        description = COALESCE($4, description),
-        date = COALESCE($5, date),
-        updated_at = NOW()
-       WHERE id = $6 ${userClause} RETURNING *`,
+      `UPDATE transactions SET ${setClauses.join(', ')} WHERE id = $${idx} ${whereClause} RETURNING *`,
       params
     );
 

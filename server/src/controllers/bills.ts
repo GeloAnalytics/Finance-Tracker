@@ -107,23 +107,24 @@ export async function updateBill(req: Request, res: Response) {
     const { id } = req.params;
     const { name, amount, due_date, category_id, status, notes } = req.body;
 
-    // `$7` is the item id. When the request is authenticated the user id is
-    // appended as the eighth parameter, so the ownership check must reference
-    // `$8`. Using `$7` both rejected valid edits and left an unused bind value.
-    const userClause = userId ? 'AND user_id = $8' : '';
-    const params = [name, amount, due_date, category_id, status, notes, id];
-    if (userId) params.push(userId as any);
+    // Dynamic SET clause so partial updates work and nullable fields (due_date, notes) can be cleared
+    const setClauses: string[] = ['updated_at = NOW()'];
+    const params: any[] = [];
+    let idx = 1;
+
+    if (name !== undefined) { setClauses.push(`name = $${idx++}`); params.push(name); }
+    if (amount !== undefined) { setClauses.push(`amount = $${idx++}`); params.push(amount); }
+    if (due_date !== undefined) { setClauses.push(`due_date = $${idx++}`); params.push(due_date ?? null); }
+    if (category_id !== undefined) { setClauses.push(`category_id = $${idx++}`); params.push(category_id ?? null); }
+    if (status !== undefined) { setClauses.push(`status = $${idx++}`); params.push(status); }
+    if (notes !== undefined) { setClauses.push(`notes = $${idx++}`); params.push(notes ?? null); }
+
+    params.push(id);
+    const whereClause = userId ? `AND user_id = $${idx + 1}` : '';
+    if (userId) params.push(userId);
 
     const result = await pool.query(
-      `UPDATE bills_and_items SET
-        name = COALESCE($1, name),
-        amount = COALESCE($2, amount),
-        due_date = COALESCE($3, due_date),
-        category_id = COALESCE($4, category_id),
-        status = COALESCE($5, status),
-        notes = COALESCE($6, notes),
-        updated_at = NOW()
-       WHERE id = $7 ${userClause} RETURNING *`,
+      `UPDATE bills_and_items SET ${setClauses.join(', ')} WHERE id = $${idx} ${whereClause} RETURNING *`,
       params
     );
 

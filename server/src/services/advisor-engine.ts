@@ -26,6 +26,26 @@ ${budget}
 `;
 }
 
+async function getRecentChatHistory(userId?: number, limit = 8): Promise<{ role: string; content: string }[]> {
+  if (!userId) return [];
+  try {
+    const result = await pool.query(
+      `SELECT role, content FROM (
+         SELECT role, content, created_at 
+         FROM chat_messages 
+         WHERE user_id = $1 
+         ORDER BY created_at DESC 
+         LIMIT $2
+       ) sub ORDER BY created_at ASC`,
+      [userId, limit]
+    );
+    return result.rows;
+  } catch (err: any) {
+    console.error('Error fetching chat history context:', err.message);
+    return [];
+  }
+}
+
 export async function generateAdvisorResponse(userMessage: string, userId?: number): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
 
@@ -36,23 +56,41 @@ export async function generateAdvisorResponse(userMessage: string, userId?: numb
   try {
     const ai = new GoogleGenAI({ apiKey });
     const context = await getFinancialContext(userId);
+    const recentHistory = await getRecentChatHistory(userId, 8);
 
     const systemPrompt = `You are FinanceWise Advisor, a helpful, encouraging, and expert financial AI assistant. 
 Your goal is to provide personalized financial advice, explain financial concepts clearly, and help the user manage their money effectively.
 Always use the Philippine Peso (₱) as the default currency context. Keep your responses concise, engaging, and well-formatted using markdown.
 
-Here is the user's current financial data to help you personalize your advice:
+Here is the user's current live financial data to help you personalize your advice:
 ${context}
 
-When answering the user's question, try to reference their actual data if it's relevant (e.g. if they ask how to pay off debt, mention their specific high-interest debts). Be encouraging but realistic.`;
+When answering the user's question, reference their actual data if it's relevant (e.g. if they ask how to pay off debt, mention their specific high-interest debts). Be encouraging, practical, and realistic.`;
 
+    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [
+      { role: 'user', parts: [{ text: systemPrompt }] },
+      { role: 'model', parts: [{ text: 'Understood. I have access to your live financial snapshot and will provide clear, personalized financial advice.' }] },
+    ];
+
+    // Append recent conversational turns for multi-turn conversational context
+    // Exclude the very last entry if it's the current user message to prevent duplication
+    const previousHistory = recentHistory.slice(0, -1);
+    for (const msg of previousHistory) {
+      if (msg.role === 'user' || msg.role === 'advisor') {
+        contents.push({
+          role: msg.role === 'advisor' ? 'model' : 'user',
+          parts: [{ text: msg.content }],
+        });
+      }
+    }
+
+    // Add current user message
+    contents.push({ role: 'user', parts: [{ text: userMessage }] });
+
+    const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        { role: 'user', parts: [{ text: systemPrompt }] },
-        { role: 'model', parts: [{ text: 'Understood. I will use this context to provide personalized financial advice.' }] },
-        { role: 'user', parts: [{ text: userMessage }] }
-      ]
+      model: modelName,
+      contents,
     });
 
     return response.text || "I'm sorry, I couldn't generate a response at this time.";
@@ -87,8 +125,7 @@ async function analyzeUserFinances(userId?: number): Promise<string> {
     }
 
     const savingsRate = income > 0 ? ((income - expenses) / income * 100) : 0;
-    const response = `This month's income: ₱${income.toLocaleString()}, expenses: ₱${expenses.toLocaleString()}, net: ₱${(income - expenses).toLocaleString()} (${savingsRate.toFixed(1)}% savings rate).\n`;
-    return response;
+    return `This month's income: ₱${income.toLocaleString()}, expenses: ₱${expenses.toLocaleString()}, net: ₱${(income - expenses).toLocaleString()} (${savingsRate.toFixed(1)}% savings rate).\n`;
   } catch {
     return `Could not fetch finance data.`;
   }

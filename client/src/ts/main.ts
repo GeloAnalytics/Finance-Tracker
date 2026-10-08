@@ -28,19 +28,25 @@ export const showToast = (message: string, type: 'success' | 'error' | 'info' = 
   const container = document.getElementById('toast-container');
   if (!container) return;
 
+  const icons: Record<string, string> = { success: '✓', error: '✕', info: 'ℹ' };
+
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
-  toast.textContent = message;
+  toast.style.display = 'flex';
+  toast.style.alignItems = 'center';
+  toast.style.gap = '10px';
+  toast.innerHTML = `<span style="font-weight:800; flex-shrink:0;">${icons[type]}</span><span>${message}</span>`;
 
   container.appendChild(toast);
 
-  // Remove toast after 3 seconds
+  // Dismiss after 4 seconds (longer for error)
+  const delay = type === 'error' ? 5000 : 3500;
   setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(50px)';
     toast.style.transition = 'all 0.3s ease';
     setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  }, delay);
 };
 
 // Register Routes
